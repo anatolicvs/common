@@ -1,0 +1,15 @@
+{
+  "name": "common",
+  "version": "1.0.0",
+  "description": "fiyuu common",
+  "main": "tools.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git-codecommit.eu-west-1.amazonaws.com/v1/repos/common"
+  },
+  "author": "ertugrulgerceker@fiyuu.com.tr",
+  "license": "ISC"
+}
