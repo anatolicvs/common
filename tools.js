@@ -806,10 +806,6 @@ function sanity() {
 
 sanity();
 
-function test() {
-	return true;
-}
-
 module.exports = {
 	exportAll,
 	ts,
@@ -849,6 +845,5 @@ module.exports = {
 	differentiate,
 	renderHourOfDay,
 
-	run,
-	test
+	run
 };
