@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert");
-const tools = require("..");
+const { tools } = require("..");
 
 describe('isString', function () {
 
