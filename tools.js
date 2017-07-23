@@ -34,7 +34,6 @@ const patterns = {
 	creditCardCVC: /^[0-9]{3}$/,
 	creditCardExp: /^(0?[1-9]|1[012])([0-9]{2})$/
 };
-module.exports.patterns = patterns;
 
 /*******************************
 	String.prototype.format
@@ -72,13 +71,6 @@ function exportAll(module, array) {
 		module.exports[item.name] = item;
 	}
 }
-
-
-/*******************************
-	format
-*******************************/
-module.exports.format = util.format;
-
 
 /*******************************
 	ts
@@ -770,6 +762,45 @@ function run(array, cb) {
 	return loop(0);
 }
 
+class ValidationError extends Error {
+	constructor(message) {
+		super(message);
+	}
+}
+
+ValidationError.prototype.name = "ValidationError";
+
+function validateObject(value, name) {
+
+	if (!isObject(value)) {
+		throw new ValidationError(
+			util.format("%j (%j) is not an object.", name, value)
+		);
+	}
+}
+
+function validateEmail(value, name) {
+
+	if (!isEmail(value)) {
+		throw new ValidationError(
+			util.format("%j (%j) is not an email.", name, value)
+		);
+	}
+}
+
+function validateGetTrimmed(value, name) {
+
+	const trimmed = getTrimmed(value);
+
+	if (trimmed === undefined) {
+		throw new ValidationError(
+			util.format("%s (%j) is not a trimmed.", name, value)
+		);
+	}
+
+	return trimmed;
+}
+
 function sanity() {
 
 	function assert(value, expected) {
@@ -807,6 +838,8 @@ function sanity() {
 sanity();
 
 module.exports = {
+	patterns,
+	format: util.format,
 	exportAll,
 	ts,
 	newid,
@@ -845,5 +878,9 @@ module.exports = {
 	differentiate,
 	renderHourOfDay,
 
-	run
+	run,
+	ValidationError,
+	validateObject,
+	validateEmail,
+	validateGetTrimmed
 };
