@@ -418,7 +418,12 @@ function createTable(array, key) {
 
 			console.log(JSON.stringify(array, null, "  "));
 
-			throw new Error("id (%j) is already defined.".format(id));
+			throw new Error(
+				util.format(
+					"id (%j) is already defined.",
+					id
+				)
+			);
 		}
 
 		result[id] = item;
@@ -837,6 +842,137 @@ function sanity() {
 
 sanity();
 
+/*
+	http://en.wikipedia.org/wiki/Earth_radius
+*/
+const EARTH_MEAN_RADIUS = 6371009;
+
+function toDegrees(radians) {
+	return radians * 180 / Math.PI;
+}
+
+function toRadians(degrees) {
+	return degrees * Math.PI / 180;
+}
+
+/*
+	http://mathforum.org/library/drmath/view/51879.html
+*/
+function calculateDistance(lat1, lng1, lat2, lng2) {
+
+	if (!isLatLng(lat1, lng1)) {
+
+		throw new Error(
+			util.format(
+				"lat1,lng1 (%j,%j) is not valid.",
+				lat1,
+				lng1
+			)
+		);
+	}
+
+
+	if (!isLatLng(lat2, lng2)) {
+
+		throw new Error(
+			util.format(
+				"lat2,lng2 (%j,%j) is not valid.",
+				lat2,
+				lng2
+			)
+		);
+	}
+
+	const dlat = toRadians(lat2 - lat1);
+	const dlng = toRadians(lng2 - lng1);
+
+	const sin_dlat_2 = Math.sin(dlat / 2);
+	const sin_dlng_2 = Math.sin(dlng / 2);
+
+	const cos_lat1 = Math.cos(toRadians(lat1));
+	const cos_lat2 = Math.cos(toRadians(lat2));
+
+	const a = sin_dlat_2 * sin_dlat_2 + cos_lat1 * cos_lat2 * sin_dlng_2 * sin_dlng_2;
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+	return EARTH_MEAN_RADIUS * c;
+};
+
+/*
+	https://en.wikipedia.org/wiki/Z-order_curve
+*/
+function zindex(x, y) {
+
+	if (!isInteger(x)) {
+
+		throw new Error(
+			util.format(
+				"x (%j) is not an integer.",
+				x
+			)
+		);
+	}
+
+	if (!isInteger(y)) {
+
+		throw new Error(
+			util.format(
+				"y (%j) is not an integer.",
+				y
+			)
+		);
+	}
+
+	var bit = 1;
+	var max = Math.max(x, y);
+	var result = 0;
+
+	while (bit <= max) {
+		bit <<= 1;
+	}
+
+	bit >>= 1;
+
+	while (bit) {
+
+		result *= 2;
+
+		if (x & bit) {
+			result += 1;
+		}
+
+		result *= 2;
+
+		if (y & bit) {
+			result += 1;
+		}
+
+		bit >>= 1;
+	}
+
+	return result;
+}
+
+function tnzindex(lat, lng) {
+
+	if (!isLatLng(lat, lng)) {
+
+		throw new Error(
+			util.format(
+				"lat,lng (%j,%j) is not valid.",
+				lat,
+				lng
+			)
+		);
+	}
+
+	return zindex(
+		Math.round((lat + 90) * 100000),
+		Math.round((lng + 180) * 100000)
+	);
+}
+
+
 module.exports = {
 	patterns,
 	format: util.format,
@@ -882,5 +1018,12 @@ module.exports = {
 	ValidationError,
 	validateObject,
 	validateEmail,
-	validateGetTrimmed
+	validateGetTrimmed,
+
+	EARTH_MEAN_RADIUS,
+	toDegrees,
+	toRadians,
+	calculateDistance,
+	zindex,
+	tnzindex
 };
