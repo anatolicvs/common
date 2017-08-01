@@ -5,7 +5,7 @@ const util = require("util");
 const crypto = require("crypto");
 const uuid = require("uuid");
 const lodash = require("lodash");
-const restify = require("restify");
+const http = require("http");
 const moment = require("moment");
 
 /*******************************
@@ -362,17 +362,20 @@ function turkishInvariant(value) {
 *******************************/
 function getPublicIP(cb) {
 
-	const client = restify.createStringClient({
-		url: "http://api.ipify.org"
+	const request = http.get({ host: "api.ipify.org", path: "/" }, response => {
+
+		let body = "";
+		response.on("data", data => {
+			body += data;
+		});
+
+		response.on("end", () => {
+			cb(null, data);
+		});
 	});
 
-	client.get("/", (err, req, res, data) => {
-
-		if (err) {
-			return cb(err);
-		}
-
-		cb(null, data);
+	request.on("error", error => {
+		cb(error);
 	});
 }
 
