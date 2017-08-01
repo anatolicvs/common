@@ -1,5 +1,6 @@
 "use strict";
 const assert = require("assert");
+const net = require("net");
 const { tools } = require("..");
 
 describe('isString', function () {
@@ -28,4 +29,16 @@ describe('isString', function () {
 			assert.equal(result, test.expected);
 		});
 	});
+
+	it("shoud get public ip", cb => {
+		tools.getPublicIP((err, ip) => {
+
+			if (err) {
+				return cb(err);
+			}
+
+			assert(net.isIP(ip));
+			cb();
+		});
+	})
 });

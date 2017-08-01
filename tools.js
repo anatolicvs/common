@@ -370,7 +370,7 @@ function getPublicIP(cb) {
 		});
 
 		response.on("end", () => {
-			cb(null, data);
+			cb(null, body);
 		});
 	});
 
