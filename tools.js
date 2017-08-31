@@ -8,12 +8,14 @@ const lodash = require("lodash");
 const http = require("http");
 const moment = require("moment");
 
+// http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
+const emailPattern = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
+
 /*******************************
 	patterns
 *******************************/
 const patterns = {
-	// http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
-	email: /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i,
+	email: emailPattern,
 
 	uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
 	uuid_uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
@@ -161,6 +163,22 @@ function getId(value) {
 
 
 /*******************************
+	asId
+*******************************/
+function asId(value) {
+
+	if (isString(value)) {
+
+		value = value.trim().toLowerCase();
+
+		if (isId(value)) {
+			return value;
+		}
+	}
+}
+
+
+/*******************************
 	getTrimmed
 *******************************/
 function getTrimmed(value) {
@@ -177,11 +195,38 @@ function getTrimmed(value) {
 
 
 /*******************************
-	getEmail
+asTrimmed
+*******************************/
+function asTrimmed(value) {
+
+	if (isString(value)) {
+
+		value = value.trim();
+
+		if (0 < value.length) {
+			return value;
+		}
+	}
+}
+
+
+/*******************************
+getEmail
 *******************************/
 function getEmail(value) {
 
-	if (patterns.email.test(value)) {
+	if (emailPattern.test(value)) {
+		return value;
+	}
+}
+
+
+/*******************************
+	asEmail
+*******************************/
+function asEmail(value) {
+
+	if (emailPattern.test(value)) {
 		return value;
 	}
 }
@@ -191,7 +236,7 @@ function getEmail(value) {
 	isEmail
 *******************************/
 function isEmail(value) {
-	return patterns.email.test(value);
+	return emailPattern.test(value);
 }
 
 
@@ -1000,6 +1045,11 @@ module.exports = {
 	getId,
 	getTrimmed,
 	getEmail,
+
+	asId,
+	asTrimmed,
+	asEmail,
+
 	turkishInvariant,
 	htmlEscape,
 
