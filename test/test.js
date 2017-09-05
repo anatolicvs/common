@@ -93,3 +93,26 @@ describe('getPublicIP', () => {
 		});
 	})
 });
+
+
+describe('creditCardExp', () => {
+
+	it("shoud work", () => {
+
+		for (let i = 10000; i < 20000; i++) {
+
+			const exp = i.toString().substr(1);
+			if (tools.isCreditCardExp(exp)) {
+				const month = exp.substr(0, 2);
+				const year = exp.substr(2);
+
+				assert(month.length === 2);
+				const monthValue = parseInt(month);
+				assert(1 <= monthValue);
+				assert(monthValue <= 12);
+
+				assert(year.length === 2);
+			}
+		}
+	})
+});
