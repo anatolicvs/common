@@ -34,7 +34,7 @@ const patterns = {
 
 	creditCardNo: /^[0-9]{16}$/,
 	creditCardCVC: /^[0-9]{3}$/,
-	creditCardExp: /^(0?[1-9]|1[012])([0-9]{2})$/
+	creditCardExp: /^(0[1-9]|1[012])([0-9]{2})$/
 };
 
 /*******************************
