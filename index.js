@@ -1,5 +1,5 @@
 "use strict";
-const tools = require("./tools.js");
+const tools = require("./src/tools.js");
 
 const {
 	SimpleLogService,
@@ -9,7 +9,11 @@ const {
 	Log,
 	NoLog,
 	ConsoleLog
-} = require("./Log.js");
+} = require("./src/logging.js");
+
+const {
+	RepositoryGenerator
+} = require("./src/RepositoryGenerator");
 
 module.exports = {
 	tools,
@@ -20,5 +24,7 @@ module.exports = {
 	DynamoDbAppender,
 	Log,
 	NoLog,
-	ConsoleLog
+	ConsoleLog,
+
+	RepositoryGenerator
 };

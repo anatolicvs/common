@@ -1,6 +1,5 @@
 "use strict";
 const os = require("os");
-const util = require("util");
 const tools = require("./tools.js");
 
 class SimpleLogService {
@@ -12,7 +11,7 @@ class SimpleLogService {
 	log(category, level, args) {
 
 		const ts = tools.ts();
-		const message = util.format(...args);
+		const message = tools.format(...args);
 
 		const appenders = this.appenders;
 		for (let i = 0, length = appenders.length; i < length; i++) {
@@ -104,32 +103,32 @@ NoLog.instance = new NoLog();
 class ConsoleLog {
 
 	trace(...args) {
-		console.log("\x1b[38;5;240mTRACE\x1b[0m", util.format(...args));
+		console.log("\x1b[38;5;240mTRACE\x1b[0m", tools.format(...args));
 		return true;
 	}
 
 	debug(...args) {
-		console.log("DEBUG", util.format(...args));
+		console.log("DEBUG", tools.format(...args));
 		return true;
 	}
 
 	info(...args) {
-		console.log("INFO", util.format(...args));
+		console.log("INFO", tools.format(...args));
 		return true;
 	}
 
 	warn(...args) {
-		console.log("WARN", util.format(...args));
+		console.log("WARN", tools.format(...args));
 		return true;
 	}
 
 	error(...args) {
-		console.log("ERROR", util.format(...args));
+		console.log("ERROR", tools.format(...args));
 		return true;
 	}
 
 	fatal(...args) {
-		console.log("FATAL", util.format(...args));
+		console.log("FATAL", tools.format(...args));
 		return true;
 	}
 }
