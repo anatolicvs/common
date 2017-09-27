@@ -1,4 +1,5 @@
 "use strict";
+const util = require("util");
 const assert = require("assert");
 const net = require("net");
 const { tools } = require("..");
@@ -74,6 +75,49 @@ describe('isId', () => {
 		it("correctly tests " + test.args, () => {
 			const result = tools.isId(test.args);
 			assert.equal(result, test.expected);
+		});
+	});
+});
+
+describe('getId', () => {
+
+	const tests = [
+		{ expected: false },
+		{ args: void 0, expected: false },
+		{ args: undefined, expected: false },
+		{ args: null, expected: false },
+		{ args: 0, expected: false },
+		{ args: 0.5, expected: false },
+		{ args: {}, expected: false },
+		{ args: [], expected: false },
+		{ args: NaN, expected: false },
+		{ args: "A0000000-0000-0000-0000-000000000000", expected: false },
+		{ args: " 00000000-0000-0000-0000-000000000000", expected: false },
+		{ args: "00000000-0000-0000-0000-000000000000 ", expected: false },
+		{ args: "a0000000-0000-0000-0000-000000000000", expected: true },
+		{ args: "00000000-0000-0000-0000-000000000000", expected: true },
+	];
+
+	tests.forEach(test => {
+
+		it(util.format("correctly tests j(%j) s(%s) as %j.", test.args, test.args, test.expected), () => {
+
+			let result;
+			let thrown;
+			try {
+				result = tools.getId(test.args);
+			}
+			catch (e) {
+				thrown = e;
+			}
+
+			if (test.expected) {
+				assert(result === test.args);
+				assert(thrown === undefined);
+			}
+			else {
+				assert(thrown instanceof Error);
+			}
 		});
 	});
 });

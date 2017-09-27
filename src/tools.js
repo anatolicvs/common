@@ -149,16 +149,137 @@ function isId(value) {
 /*******************************
 	getId
 *******************************/
-function getId(value) {
+function getId(value, name) {
+
+	if (isId(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not an id.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not an id.",
+			value
+		)
+	);
+}
+
+/*******************************
+	getString
+*******************************/
+function getString(value, name) {
 
 	if (isString(value)) {
-
-		value = value.trim().toLowerCase();
-
-		if (isId(value)) {
-			return value;
-		}
+		return value;
 	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not a string.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not a string.",
+			value
+		)
+	);
+}
+
+
+/*******************************
+	getInteger
+*******************************/
+function getInteger(value, name) {
+
+	if (isInteger(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not an integer.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not an integer.",
+			value
+		)
+	);
+}
+
+/*******************************
+	getArray
+*******************************/
+function getArray(value, name) {
+
+	if (isArray(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not an array.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not an array.",
+			value
+		)
+	);
+}
+
+/*******************************
+	getObject
+*******************************/
+function getObject(value, name) {
+
+	if (isObject(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not an object.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not an object.",
+			value
+		)
+	);
 }
 
 
@@ -181,21 +302,38 @@ function asId(value) {
 /*******************************
 	getTrimmed
 *******************************/
-function getTrimmed(value) {
+function getTrimmed(value, name) {
 
-	if (isString(value)) {
+	const trimmed = asTrimmed(
+		value
+	);
 
-		value = value.trim();
+	if (trimmed === undefined) {
 
-		if (value.length > 0) {
-			return value;
+		if (name) {
+			throw new Error(
+				util.format(
+					"%s (%j) is not a trimmed.",
+					name,
+					value
+				)
+			);
 		}
+
+		throw new Error(
+			util.format(
+				"(%j) is not a trimmed.",
+				value
+			)
+		);
 	}
+
+	return trimmed;
 }
 
 
 /*******************************
-asTrimmed
+	asTrimmed
 *******************************/
 function asTrimmed(value) {
 
@@ -211,13 +349,10 @@ function asTrimmed(value) {
 
 
 /*******************************
-getEmail
+	isEmail
 *******************************/
-function getEmail(value) {
-
-	if (emailPattern.test(value)) {
-		return value;
-	}
+function isEmail(value) {
+	return emailPattern.test(value);
 }
 
 
@@ -226,17 +361,37 @@ function getEmail(value) {
 *******************************/
 function asEmail(value) {
 
-	if (emailPattern.test(value)) {
+	if (isEmail(value)) {
 		return value;
 	}
 }
 
 
 /*******************************
-	isEmail
+	getEmail
 *******************************/
-function isEmail(value) {
-	return emailPattern.test(value);
+function getEmail(value) {
+
+	if (isEmail(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not an email.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not an email.",
+			value
+		)
+	);
 }
 
 
@@ -1043,6 +1198,11 @@ module.exports = {
 	isLatLng,
 
 	getId,
+	getString,
+	getInteger,
+	getArray,
+	getObject,
+
 	getTrimmed,
 	getEmail,
 
