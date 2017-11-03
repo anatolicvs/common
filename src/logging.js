@@ -229,20 +229,35 @@ class RedisAppender {
 
 	append(ts, category, level, message, args) {
 
-		if (this.redis.connected) {
+		const redis = this.redis;
 
-			const messageJSON = JSON.stringify({
+		if (redis.connected) {
+
+			const {
+				app,
+				env,
+				channel
+			 } = this;
+
+			const json = JSON.stringify({
 				ts,
+				app,
+				env,
 				category,
 				level,
 				message
 			});
 
-			this.redis.publish(this.channel, messageJSON);
+			redis.publish(
+				channel,
+				json
+			);
 		}
 	}
 }
 
+RedisAppender.prototype.app = null;
+RedisAppender.prototype.env = null;
 RedisAppender.prototype.channel = null;
 RedisAppender.prototype.redis = null;
 
