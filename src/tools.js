@@ -142,7 +142,7 @@ function isFunction(value) {
 	isId
 *******************************/
 function isId(value) {
-	return patterns.uuid.test(value);
+	return typeof value === "string" && patterns.uuid.test(value);
 }
 
 
@@ -399,7 +399,7 @@ function getEmail(value) {
 	module.exports.isCode
 *******************************/
 function isCode(value) {
-	return patterns.code.test(value);
+	return typeof value === "string" && patterns.code.test(value);
 }
 
 
