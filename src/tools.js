@@ -256,7 +256,55 @@ function getArray(value, name) {
 }
 
 /*******************************
-	getObject
+	getArray
+*******************************/
+function getNonEmptyArray(value, name) {
+
+	if (isArray(value)) {
+
+		if (0 < value.length) {
+			return value;
+		}
+
+		if (name) {
+
+			throw new Error(
+				util.format(
+					"%s (%j) is not a non-empty array.",
+					name,
+					value
+				)
+			);
+		}
+
+		throw new Error(
+			util.format(
+				"(%j) is not a non-empty array.",
+				value
+			)
+		);
+	}
+
+	if (name) {
+		throw new Error(
+			util.format(
+				"%s (%j) is not a non-empty array.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not a non-empty array.",
+			value
+		)
+	);
+}
+
+/*******************************
+getObject
 *******************************/
 function getObject(value, name) {
 
@@ -1201,6 +1249,7 @@ module.exports = {
 	getString,
 	getInteger,
 	getArray,
+	getNonEmptyArray,
 	getObject,
 
 	getTrimmed,

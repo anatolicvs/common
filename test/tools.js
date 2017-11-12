@@ -122,22 +122,123 @@ describe('getId', () => {
 	});
 });
 
-describe('getPublicIP', () => {
+describe('getArray', () => {
 
-	it("shoud get an ip", cb => {
+	const tests = [
+		{ throws: "(undefined) is not an array." },
+		{ args: void 0, throws: "(undefined) is not an array." },
+		{ args: undefined, throws: "(undefined) is not an array." },
+		{ args: null, throws: "(null) is not an array." },
+		{ args: 0, throws: "(0) is not an array." },
+		{ args: 0.5, throws: "(0.5) is not an array." },
+		{ args: {}, throws: "({}) is not an array." },
+		{ args: NaN, throws: "(null) is not an array." },
+		{ args: "123", throws: "(\"123\") is not an array." },
+		{ args: "[]", throws: "(\"[]\") is not an array." },
+		{ args: "[1,2,3]", throws: "(\"[1,2,3]\") is not an array." },
+		{ args: { length: 3 }, throws: "({\"length\":3}) is not an array." },
+		{ args: [] },
+		{ args: [1, 2, 3] },
+		{ args: [1, "2", 3.5] }
+	];
 
-		tools.getPublicIP((err, ip) => {
+	tests.forEach(test => {
 
-			if (err) {
-				return cb(err);
+		it(util.format("correctly tests j(%j) s(%s).", test.args, test.args), () => {
+
+			let thrown;
+
+			if (test.throws) {
+
+				try {
+					tools.getArray(test.args);
+				}
+				catch (error) {
+					if (error.message === test.throws) {
+						return;
+					}
+
+					throw error;
+				}
+
+				assert(false);
 			}
+			else {
 
-			assert(net.isIP(ip));
-			cb();
+				const result = tools.getArray(test.args);
+				assert(result === test.args);
+			}
 		});
-	})
+	});
 });
 
+describe('getNonEmptyArray', () => {
+
+	const tests = [
+		{ throws: "(undefined) is not a non-empty array." },
+		{ args: void 0, throws: "(undefined) is not a non-empty array." },
+		{ args: undefined, throws: "(undefined) is not a non-empty array." },
+		{ args: null, throws: "(null) is not a non-empty array." },
+		{ args: 0, throws: "(0) is not a non-empty array." },
+		{ args: 0.5, throws: "(0.5) is not a non-empty array." },
+		{ args: {}, throws: "({}) is not a non-empty array." },
+		{ args: [], throws: "([]) is not a non-empty array." },
+		{ args: NaN, throws: "(null) is not a non-empty array." },
+		{ args: "123", throws: "(\"123\") is not a non-empty array." },
+		{ args: "[]", throws: "(\"[]\") is not a non-empty array." },
+		{ args: "[1,2,3]", throws: "(\"[1,2,3]\") is not a non-empty array." },
+		{ args: { length: 3 }, throws: "({\"length\":3}) is not a non-empty array." },
+		{ args: [1, 2, 3] },
+		{ args: [1, "2", 3.5] }
+	];
+
+	tests.forEach(test => {
+
+		it(util.format("correctly tests j(%j) s(%s).", test.args, test.args), () => {
+
+			let thrown;
+
+			if (test.throws) {
+
+				try {
+					tools.getNonEmptyArray(test.args);
+				}
+				catch (error) {
+					if (error.message === test.throws) {
+						return;
+					}
+
+					throw error;
+				}
+
+				assert(false);
+			}
+			else {
+
+				const result = tools.getNonEmptyArray(test.args);
+				assert(result === test.args);
+			}
+		});
+	});
+});
+
+
+// not adeq
+// describe('getPublicIP', () => {
+
+// 	it("shoud get an ip", cb => {
+
+// 		tools.getPublicIP((err, ip) => {
+
+// 			if (err) {
+// 				return cb(err);
+// 			}
+
+// 			assert(net.isIP(ip));
+// 			cb();
+// 		});
+// 	})
+// });
 
 describe('creditCardExp', () => {
 
