@@ -1223,6 +1223,33 @@ function tnzindex(lat, lng) {
 	);
 }
 
+function sortObject(object) {
+
+	const keys = Object.keys(object);
+	keys.sort();
+
+	const result = {};
+
+	for (const key of keys) {
+
+		const value = object[key];
+
+		if (Array.isArray(value)) {
+			result[key] = value;
+			continue;
+		}
+
+		if (typeof value === "object") {
+			result[key] = sortObject(value);
+			continue;
+		}
+
+		result[key] = value;
+	}
+
+	return result;
+}
+
 
 module.exports = {
 	patterns,
@@ -1287,5 +1314,7 @@ module.exports = {
 	toRadians,
 	calculateDistance,
 	zindex,
-	tnzindex
+	tnzindex,
+
+	sortObject
 };
