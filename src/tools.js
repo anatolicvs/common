@@ -14,10 +14,12 @@ const emailPattern = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".
 /*******************************
 	patterns
 *******************************/
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const patterns = {
 	email: emailPattern,
 
-	uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+	uuid: UUID,
 	uuid_uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
 	code: /^(?=.{1,1024}$)([0-9a-z]+(-[0-9a-z]+)*)$/,
 	adminUsername: /^[a-zA-Z]{3,32}$/,
@@ -115,14 +117,6 @@ function isInteger(value) {
 
 
 /*******************************
-	isString
-*******************************/
-function isString(value) {
-	return lodash.isString(value);
-}
-
-
-/*******************************
 	isObject
 *******************************/
 function isObject(value) {
@@ -138,24 +132,32 @@ function isFunction(value) {
 }
 
 
-/*******************************
-	isId
-*******************************/
 function isId(value) {
-	return typeof value === "string" && patterns.uuid.test(value);
+
+	if (typeof value === "string") {
+
+		if (UUID.test(value)) {
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 
-/*******************************
-	getId
-*******************************/
 function getId(value, name) {
 
-	if (isId(value)) {
-		return value;
+	if (typeof value === "string") {
+
+		if (UUID.test(value)) {
+
+			return value;
+		}
 	}
 
 	if (name) {
+
 		throw new Error(
 			util.format(
 				"%s (%j) is not an id.",
@@ -173,16 +175,86 @@ function getId(value, name) {
 	);
 }
 
-/*******************************
-	getString
-*******************************/
+function ogetId(value, name) {
+
+	if (value === void 0) {
+		return;
+	}
+
+	return getId(value, name);
+}
+
+function isCode(value) {
+
+	if (typeof value === "string") {
+
+		if (patterns.code.test(value)) {
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+function getCode(value, name) {
+
+	if (typeof value === "string") {
+
+		if (patterns.code.test(value)) {
+
+			return value;
+		}
+	}
+
+	if (name) {
+
+		throw new Error(
+			util.format(
+				"%s (%j) is not a code.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not a code.",
+			value
+		)
+	);
+}
+
+function ogetCode(value, name) {
+
+	if (value === void 0) {
+		return;
+	}
+
+	return getCode(value, name);
+}
+
+function isString(value) {
+
+	if (typeof value === "string") {
+
+		return true;
+	}
+
+	return false;
+}
+
 function getString(value, name) {
 
-	if (isString(value)) {
+	if (typeof value === "string") {
+
 		return value;
 	}
 
 	if (name) {
+
 		throw new Error(
 			util.format(
 				"%s (%j) is not a string.",
@@ -201,9 +273,6 @@ function getString(value, name) {
 }
 
 
-/*******************************
-	getInteger
-*******************************/
 function getInteger(value, name) {
 
 	if (isInteger(value)) {
@@ -226,6 +295,15 @@ function getInteger(value, name) {
 			value
 		)
 	);
+}
+
+function ogetInteger(value, name) {
+
+	if (value === void 0) {
+		return;
+	}
+
+	return getInteger(value, name);
 }
 
 /*******************************
@@ -303,9 +381,6 @@ function getNonEmptyArray(value, name) {
 	);
 }
 
-/*******************************
-getObject
-*******************************/
 function getObject(value, name) {
 
 	if (isObject(value)) {
@@ -330,6 +405,14 @@ function getObject(value, name) {
 	);
 }
 
+function ogetObject(value, name) {
+
+	if (value === void 0) {
+		return;
+	}
+
+	return getObject(value, name);
+}
 
 /*******************************
 	asId
@@ -356,7 +439,7 @@ function getTrimmed(value, name) {
 		value
 	);
 
-	if (trimmed === undefined) {
+	if (trimmed === void 0) {
 
 		if (name) {
 			throw new Error(
@@ -440,14 +523,6 @@ function getEmail(value) {
 			value
 		)
 	);
-}
-
-
-/*******************************
-	module.exports.isCode
-*******************************/
-function isCode(value) {
-	return typeof value === "string" && patterns.code.test(value);
 }
 
 
@@ -665,7 +740,7 @@ function createTable(array, key) {
 
 		const id = item[key];
 
-		if (result[id] !== undefined) {
+		if (result[id] !== void 0) {
 
 			console.log(JSON.stringify(array, null, "  "));
 
@@ -723,7 +798,7 @@ function differentiate(internals, internalKey, externals, externalKey, update) {
 		const internalId = internal[internalKey];
 		const external = externalsTable[internalId];
 
-		if (external === undefined) {
+		if (external === void 0) {
 			difference.delete.push(internal);
 		}
 		else {
@@ -748,7 +823,7 @@ function differentiate(internals, internalKey, externals, externalKey, update) {
 		const externalId = external[externalKey];
 		const internal = internalsTable[externalId];
 
-		if (internal === undefined) {
+		if (internal === void 0) {
 			difference.import.push(external);
 		}
 	}
@@ -779,17 +854,17 @@ function run(array, cb) {
 
 			const activity = array[i];
 
-			// ASSERT(error === undefined)
+			// ASSERT(error === void 0)
 
 			switch (invoke(i, activity)) {
 
 				case 0:
-					// ASSERT(error === undefined)
+					// ASSERT(error === void 0)
 
 					return;
 
 				case 1:
-					// ASSERT(error === undefined)
+					// ASSERT(error === void 0)
 
 					break;
 
@@ -801,7 +876,7 @@ function run(array, cb) {
 			}
 		}
 
-		// ASSERT(error === undefined)
+		// ASSERT(error === void 0)
 
 		return cb();
 	}
@@ -810,7 +885,7 @@ function run(array, cb) {
 
 		// ASSERT(Number.isInteger(index))
 		// ASSERT(0 <= index)
-		// ASSERT(error === undefined)
+		// ASSERT(error === void 0)
 
 		/*
 				[0]		->	"cb()"		->		1
@@ -844,8 +919,8 @@ function run(array, cb) {
 				switch (state) {
 
 					case 0:
-						// ASSERT(error === undefined)
-						// ASSERT(reportedError === undefined)
+						// ASSERT(error === void 0)
+						// ASSERT(reportedError === void 0)
 
 						if (err) {
 							reportedError = err;
@@ -861,19 +936,19 @@ function run(array, cb) {
 						break;
 
 					case 1:
-						// ASSERT(error === undefined)
-						// ASSERT(reportedError === undefined)
+						// ASSERT(error === void 0)
+						// ASSERT(reportedError === void 0)
 
 						throw new Error(`'${index}' already completed.`);
 
 					case 2:
-						// ASSERT(error === undefined)
+						// ASSERT(error === void 0)
 						// ASSERT(reportedError)
 
 						throw new Error(`'${index}' already failed.`);
 
 					case 3:
-						// ASSERT(reportedError === undefined)
+						// ASSERT(reportedError === void 0)
 
 						if (err) {
 							state = 10;
@@ -915,7 +990,7 @@ function run(array, cb) {
 						throw new Error(`'${index}' already failed.`);
 
 					case 9:
-						// ASSERT(reportedError === undefined)
+						// ASSERT(reportedError === void 0)
 
 						throw new Error(`'${index}' already completed.`);
 
@@ -936,8 +1011,8 @@ function run(array, cb) {
 
 			switch (state) {
 				case 0:
-					// ASSERT(error === undefined)
-					// ASSERT(reportedError === undefined)
+					// ASSERT(error === void 0)
+					// ASSERT(reportedError === void 0)
 
 					state = 4;
 
@@ -947,8 +1022,8 @@ function run(array, cb) {
 					return 2;
 
 				case 1:
-					// ASSERT(error === undefined)
-					// ASSERT(reportedError === undefined)
+					// ASSERT(error === void 0)
+					// ASSERT(reportedError === void 0)
 
 					state = 6;
 
@@ -958,7 +1033,7 @@ function run(array, cb) {
 					return 2;
 
 				case 2:
-					// ASSERT(error === undefined)
+					// ASSERT(error === void 0)
 					// ASSERT(reportedError)
 
 					state = 8;
@@ -980,8 +1055,8 @@ function run(array, cb) {
 
 		switch (state) {
 			case 0:
-				// ASSERT(error === undefined)
-				// ASSERT(reportedError === undefined)
+				// ASSERT(error === void 0)
+				// ASSERT(reportedError === void 0)
 
 				state = 3;
 
@@ -990,8 +1065,8 @@ function run(array, cb) {
 				return 0;
 
 			case 1:
-				// ASSERT(error === undefined)
-				// ASSERT(reportedError === undefined)
+				// ASSERT(error === void 0)
+				// ASSERT(reportedError === void 0)
 
 				state = 5;
 
@@ -1000,7 +1075,7 @@ function run(array, cb) {
 				return 1;
 
 			case 2:
-				// ASSERT(error === undefined)
+				// ASSERT(error === void 0)
 				// ASSERT(reportedError)
 
 				state = 7;
@@ -1048,7 +1123,7 @@ function validateGetTrimmed(value, name) {
 
 	const trimmed = getTrimmed(value);
 
-	if (trimmed === undefined) {
+	if (trimmed === void 0) {
 		throw new ValidationError(
 			util.format("%s (%j) is not a trimmed.", name, value)
 		);
@@ -1057,41 +1132,41 @@ function validateGetTrimmed(value, name) {
 	return trimmed;
 }
 
-function sanity() {
+// function sanity() {
 
-	function assert(value, expected) {
-		if (value !== expected) {
-			throw new Error();
-		}
-	}
+// 	function assert(value, expected) {
+// 		if (value !== expected) {
+// 			throw new Error();
+// 		}
+// 	}
 
-	assert(isArray([]), true);
-	assert(isArray([undefined]), true);
-	assert(isArray([null]), true);
-	assert(isArray([0]), true);
-	assert(isArray([""]), true);
-	assert(isArray([{}]), true);
-	assert(isArray(), false);
-	assert(isArray(undefined), false);
-	assert(isArray(null), false);
-	assert(isArray(""), false);
-	assert(isArray(new String()), false);
-	assert(isArray(new String("")), false);
-	assert(isArray(new String("123")), false);
-	assert(isArray(new Object()), false);
-	assert(isArray(function () { }), false);
-	assert(isArray(() => { }), false);
-	assert(isArray({}), false);
+// 	assert(isArray([]), true);
+// 	assert(isArray([undefined]), true);
+// 	assert(isArray([null]), true);
+// 	assert(isArray([0]), true);
+// 	assert(isArray([""]), true);
+// 	assert(isArray([{}]), true);
+// 	assert(isArray(), false);
+// 	assert(isArray(undefined), false);
+// 	assert(isArray(null), false);
+// 	assert(isArray(""), false);
+// 	assert(isArray(new String()), false);
+// 	assert(isArray(new String("")), false);
+// 	assert(isArray(new String("123")), false);
+// 	assert(isArray(new Object()), false);
+// 	assert(isArray(function () { }), false);
+// 	assert(isArray(() => { }), false);
+// 	assert(isArray({}), false);
 
-	assert(isObject({}), true);
+// 	assert(isObject({}), true);
 
-	assert(isString(``), true);
-	assert(isString(''), true);
-	assert(isString(""), true);
-	assert(isString(new String()), true);
-}
+// 	assert(isString(``), true);
+// 	assert(isString(''), true);
+// 	assert(isString(""), true);
+// 	assert(isString(new String()), true);
+// }
 
-sanity();
+// sanity();
 
 /*
 	http://en.wikipedia.org/wiki/Earth_radius
@@ -1273,6 +1348,7 @@ module.exports = {
 	isLatLng,
 
 	getId,
+	getCode,
 	getString,
 	getInteger,
 	getArray,
@@ -1281,6 +1357,11 @@ module.exports = {
 
 	getTrimmed,
 	getEmail,
+
+	ogetId,
+	ogetCode,
+	ogetInteger,
+	ogetObject,
 
 	asId,
 	asTrimmed,
