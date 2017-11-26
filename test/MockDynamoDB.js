@@ -2,13 +2,16 @@
 const assert = require("assert");
 const dynalite = require("dynalite");
 const aws = require("aws-sdk");
-const { tools } = require("..");
+const { NoLog, tools } = require("..");
 
 class MockDynamoDB {
 
 	async start() {
 
-		console.log("starting dynalite...");
+		this.log.trace(
+			"starting dynalite..."
+		);
+
 		const dynaliteServer = dynalite({
 			createTableMs: 0
 		});
@@ -42,7 +45,10 @@ class MockDynamoDB {
 		}
 		else {
 
-			console.log("creating tables...");
+			this.log.trace(
+				"creating tables..."
+			);
+
 			for (const createTableRequest of createTableRequests) {
 
 				await dynamoDbClient.createTable(
@@ -76,7 +82,10 @@ class MockDynamoDB {
 			}
 			else {
 
-				console.log("putting items...");
+				this.log.trace(
+					"putting items..."
+				);
+
 				for (const tableName in items) {
 					for (const item of items[tableName]) {
 
@@ -89,7 +98,9 @@ class MockDynamoDB {
 			}
 		}
 
-		console.log("dynalite ready.");
+		this.log.trace(
+			"dynalite ready."
+		);
 
 		this.dynaliteServer = dynaliteServer;
 		this.dynamoDbClient = dynamoDbClient;
@@ -98,7 +109,10 @@ class MockDynamoDB {
 
 	async stop() {
 
-		console.log("closing dynalite...");
+		this.log.trace(
+			"closing dynalite..."
+		);
+
 		await new Promise((resolve, reject) => {
 			this.dynaliteServer.once("close", resolve);
 			this.dynaliteServer.close();
@@ -110,6 +124,7 @@ class MockDynamoDB {
 	}
 }
 
+MockDynamoDB.prototype.log = NoLog.instance;
 MockDynamoDB.prototype.port = 8000;
 MockDynamoDB.prototype.createTableRequests = null;
 MockDynamoDB.prototype.items = null;
