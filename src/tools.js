@@ -1132,6 +1132,54 @@ function validateGetTrimmed(value, name) {
 	return trimmed;
 }
 
+function assert(value, message) {
+
+	if (value) {
+		return;
+	}
+
+	if (message) {
+
+		throw new Error(
+			util.format(
+				"assertion failed: %j.",
+				message
+			)
+		);
+	}
+
+	throw new Error(
+		"assertion failed."
+	);
+}
+
+function assertEqual(value, expected, name) {
+
+	if (value === expected) {
+		return;
+	}
+
+	if (name) {
+
+		throw new Error(
+			util.format(
+				"%s (%j) is not as expected (%j).",
+				name,
+				value,
+				expected
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not as expected (%j).",
+			value,
+			expected
+		)
+	);
+}
+
 // function sanity() {
 
 // 	function assert(value, expected) {
@@ -1397,5 +1445,7 @@ module.exports = {
 	zindex,
 	tnzindex,
 
-	sortObject
+	sortObject,
+	assert,
+	assertEqual
 };

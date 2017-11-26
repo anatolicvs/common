@@ -261,3 +261,82 @@ describe('creditCardExp', () => {
 		}
 	})
 });
+
+describe('assert', () => {
+
+	const scenarios = [
+		{ value: true },
+		{ value: 1 },
+		{ value: "yes" },
+		{ value: {} },
+		{ throws: "assertion failed." },
+		{ value: null, throws: "assertion failed." },
+		{ value: false, throws: "assertion failed." },
+		{ value: 0, message: "zero", throws: "assertion failed: \"zero\"." }
+	];
+
+	for (const scenario of scenarios) {
+
+		it(util.format("shoud handle (%j)", scenario.value), () => {
+
+			if (scenario.throws) {
+
+				try {
+					tools.assert(scenario.value, scenario.message);
+				}
+				catch (error) {
+
+					if (error.message === scenario.throws) {
+						return;
+					}
+
+					throw error;
+				}
+
+				assert(false);
+			}
+			else {
+
+				tools.assert(scenario.value);
+			}
+		})
+	}
+});
+
+describe('assertEqual', () => {
+
+	const scenarios = [
+		{ value: true, expected: true },
+		{ value: false, expected: false },
+		{ value: 1, expected: 0, throws: "(1) is not as expected (0)." },
+		{ value: 1, expected: 0, name: "arg", throws: "arg (1) is not as expected (0)." },
+		{ value: 1, expected: "1", name: "arg", throws: "arg (1) is not as expected (\"1\")." }
+	];
+
+	for (const scenario of scenarios) {
+
+		it(util.format("shoud handle (%j, %j)", scenario.value, scenario.expected), () => {
+
+			if (scenario.throws) {
+
+				try {
+					tools.assertEqual(scenario.value, scenario.expected, scenario.name);
+				}
+				catch (error) {
+
+					if (error.message === scenario.throws) {
+						return;
+					}
+
+					throw error;
+				}
+
+				assert(false);
+			}
+			else {
+
+				tools.assertEqual(scenario.value, scenario.expected, scenario.name);
+			}
+		})
+	}
+});
