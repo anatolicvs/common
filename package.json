@@ -11,6 +11,9 @@
     "prepush": "npm test",
     "test": "mocha --recursive --sort"
   },
+  "directories": {
+    "test": "test"
+  },
   "devDependencies": {
     "aws-sdk": "^2.6.11",
     "bluebird": "^3.5.0",
