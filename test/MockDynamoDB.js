@@ -13,7 +13,8 @@ class MockDynamoDB {
 		);
 
 		const dynaliteServer = dynalite({
-			createTableMs: 0
+			createTableMs: 0,
+			deleteTableMs: 0
 		});
 
 		await new Promise((resolve, reject) => {
