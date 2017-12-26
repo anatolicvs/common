@@ -272,6 +272,33 @@ function getString(value, name) {
 	);
 }
 
+function getNonEmptyString(value, name) {
+
+	if (typeof value === "string") {
+
+		if (0 < value.length) {
+			return value;
+		}
+	}
+
+	if (name) {
+
+		throw new Error(
+			util.format(
+				"%s (%j) is not a non-empty string.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		util.format(
+			"(%j) is not a non-empty string.",
+			value
+		)
+	);
+}
 
 function getInteger(value, name) {
 
@@ -1398,6 +1425,7 @@ module.exports = {
 	getId,
 	getCode,
 	getString,
+	getNonEmptyString,
 	getInteger,
 	getArray,
 	getNonEmptyArray,
