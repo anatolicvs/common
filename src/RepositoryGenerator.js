@@ -3,6 +3,8 @@ const os = require("os");
 const vm = require("vm");
 const tools = require("./tools.js");
 
+const kItemVersionKey = "--iv";
+
 class RepositoryGenerator {
 
 	generate(request) {
@@ -63,6 +65,15 @@ class RepositoryGenerator {
 					const table = request.tables[tableName];
 
 					this.generateUpdate(lines, tableName, table, methodName, method);
+					break;
+				}
+
+				case "update-versioned": {
+
+					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const table = request.tables[tableName];
+
+					this.generateUpdateVersioned(lines, tableName, table, methodName, method);
 					break;
 				}
 
@@ -410,6 +421,82 @@ class RepositoryGenerator {
 			// lines.push("		logConsumedCapacity(response);");
 		}
 
+		lines.push("}");
+	}
+
+	generateUpdateVersioned(lines, tableName, table, methodName, method) {
+
+		this.log.trace("generating update-versioned %j...", tableName);
+
+		let hash = tools.asTrimmed(table.hash);
+		if (hash === undefined) {
+			hash = "id";
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		lines.push(`async ${methodName} (item) {`);
+		lines.push("");
+		lines.push("	let consumed;");
+		lines.push("	let caught;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("");
+		lines.push("	try {");
+		lines.push("");
+		lines.push(`		const iv = item["${kItemVersionKey}"];`);
+		lines.push("");
+		lines.push("		if (Number.isInteger(iv)) {");
+		lines.push("");
+		lines.push("			const nextiv = iv + 1;");
+		lines.push("");
+		lines.push("			const response = await this.ddb.put({");
+		lines.push(`				TableName: "${prefixedTableName}",`);
+		lines.push(`				Item: { ...item, ["${kItemVersionKey}"]: nextiv },`);
+		lines.push(`				ConditionExpression: "#iv = :iv",`);
+		lines.push("				ExpressionAttributeNames: {");
+		lines.push(`					"#iv": "${kItemVersionKey}"`);
+		lines.push("				},");
+		lines.push("				ExpressionAttributeValues: {");
+		lines.push(`					":iv": iv`);
+		lines.push("				},");
+		lines.push("				ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("			}).promise();");
+		lines.push("");
+		lines.push(`			item["${kItemVersionKey}"] = nextiv;`);
+		lines.push("			consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("		}");
+		lines.push("		else {");
+		lines.push("");
+		lines.push("			const response = await this.ddb.put({");
+		lines.push(`			TableName: "${prefixedTableName}",`);
+		lines.push(`				Item: { ...item, ["${kItemVersionKey}"]: 0 },`);
+		lines.push(`				ConditionExpression: "attribute_exists(${hash}) and attribute_not_exists(#iv)",`);
+		lines.push("				ExpressionAttributeNames: {");
+		lines.push(`					"#iv": "${kItemVersionKey}"`);
+		lines.push("				},");
+		lines.push("				ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("			}).promise();");
+		lines.push("");
+		lines.push(`			item["${kItemVersionKey}"] = 0;`);
+		lines.push("			consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("		}");
+		lines.push("	}");
+		lines.push("	catch(error) {");
+		lines.push("");
+		lines.push("		caught = error;");
+		lines.push("		throw error;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push("		if (caught === undefined) {");
+		lines.push(`			this.log.debug("'${methodName}' update-versioned ${prefixedTableName} %d %s", consumed, elapsed);`);
+		lines.push("		}");
+		lines.push("		else {");
+		lines.push(`			this.log.debug("'${methodName}' update-versioned ${prefixedTableName} %j %s", caught.code, elapsed);`);
+		lines.push("		}");
+		lines.push("	}");
 		lines.push("}");
 	}
 

@@ -731,4 +731,158 @@ describe("RepositoryGenerator", () => {
 			assert(map.get(bookId).id === bookId);
 		}
 	});
+
+	it("should handle update-versioned", async () => {
+
+		const repositoryGenerator = new RepositoryGenerator();
+		repositoryGenerator.log = NoLog.instance;
+		repositoryGenerator.tableNamePrefix = "prefix.";
+
+		const TestRepository = repositoryGenerator.generate({
+			name: "TestRepository",
+			tables: {
+				users: {
+					hash: "id"
+				}
+			},
+			methods: {
+				getUser: "get users",
+				updateUser: "update-versioned users"
+			}
+		}).value;
+
+		const testRepository = new TestRepository();
+		testRepository.log = ConsoleLog.instance;
+		testRepository.ddb = mockDynamoDB.ddb;
+
+		let throws;
+		try {
+			await testRepository.updateUser({
+				id: "null",
+				groupId: "group@company"
+			});
+		}
+		catch (error) {
+			if (error.code === "ConditionalCheckFailedException") {
+				throws = true;
+			}
+			else {
+				throw error;
+			}
+		}
+
+		assert(throws);
+
+
+		const user1 = await testRepository.getUser(
+			"user@company"
+		);
+
+		const user2 = await testRepository.getUser(
+			"user@company"
+		);
+
+		assert(user1["--iv"] === undefined);
+		assert(user2["--iv"] === undefined);
+
+		user1.counter = 5;
+
+		await testRepository.updateUser(
+			user1
+		);
+
+		assert(user1["--iv"] === 0);
+		assert(user2["--iv"] === undefined);
+
+		user2.counter = 6;
+
+		throws = undefined;
+		try {
+			await testRepository.updateUser(
+				user2
+			);
+		}
+		catch (error) {
+			if (error.code === "ConditionalCheckFailedException") {
+				throws = true;
+			}
+			else {
+				throw error;
+			}
+		}
+
+		assert(throws);
+
+		assert(user1["--iv"] === 0);
+		assert(user2["--iv"] === undefined);
+
+		user1.counter++;
+
+		await testRepository.updateUser(
+			user1
+		);
+
+		assert(user1["--iv"] === 1);
+		assert(user2["--iv"] === undefined);
+
+		user1.counter++;
+
+		await testRepository.updateUser(
+			user1
+		);
+
+		assert(user1["--iv"] === 2);
+		assert(user2["--iv"] === undefined);
+
+		delete user1.counter;
+
+		await testRepository.updateUser(
+			user1
+		);
+
+		assert(user1["--iv"] === 3);
+		assert(user2["--iv"] === undefined);
+
+		const user2retry = await testRepository.getUser(
+			"user@company"
+		);
+
+		assert(user1["--iv"] === 3);
+		assert(user2["--iv"] === undefined);
+		assert(user2retry["--iv"] === 3);
+
+		user2retry.x = "234";
+
+		await testRepository.updateUser(
+			user2retry
+		);
+
+		assert(user1["--iv"] === 3);
+		assert(user2["--iv"] === undefined);
+		assert(user2retry["--iv"] === 4);
+
+
+		user1.y = 123;
+
+		throws = undefined;
+		try {
+			await testRepository.updateUser(
+				user1
+			);
+		}
+		catch (error) {
+			if (error.code === "ConditionalCheckFailedException") {
+				throws = true;
+			}
+			else {
+				throw error;
+			}
+		}
+
+		assert(throws);
+
+		assert(user1["--iv"] === 3);
+		assert(user2["--iv"] === undefined);
+		assert(user2retry["--iv"] === 4);
+	});
 });
