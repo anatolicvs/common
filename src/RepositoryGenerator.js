@@ -282,6 +282,7 @@ class RepositoryGenerator {
 		lines.push("	let consumed;");
 		lines.push("	let caught;");
 		lines.push("	const time = process.hrtime();");
+		lines.push("");
 		lines.push("	try {");
 		lines.push("");
 		lines.push("		const response = await this.ddb.put({");
@@ -329,43 +330,47 @@ class RepositoryGenerator {
 		lines.push("	let existingItem;");
 		lines.push("	let consumed = 0;");
 		lines.push("	const time = process.hrtime();");
+		lines.push("");
 		lines.push("	try {");
-		lines.push("	let putResponse;");
-		lines.push("	try {");
-		lines.push("		putResponse = await this.ddb.put({");
-		lines.push(`			TableName: "${prefixedTableName}", `);
-		lines.push("			Item: item,");
-		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
-		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
-		lines.push("		}).promise();");
-		lines.push("		consumed = putResponse.ConsumedCapacity.CapacityUnits;");
-		lines.push("		return;");
-
-		lines.push("	}");
-		lines.push("	catch (e) {");
-		lines.push("		if (e.code !== \"ConditionalCheckFailedException\") {");
-		lines.push("			throw e;");
-		lines.push("		}");
-		lines.push("	}");
-
-		lines.push("	const getResponse = await this.ddb.get({");
-		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push("");
+		lines.push("		let putResponse;");
+		lines.push("		try {");
+		lines.push("");
+		lines.push("				putResponse = await this.ddb.put({");
+		lines.push(`					TableName: "${prefixedTableName}", `);
+		lines.push("					Item: item,");
+		lines.push(`					ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push("					ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("				}).promise();");
+		lines.push("				consumed = putResponse.ConsumedCapacity.CapacityUnits;");
+		lines.push("				return;");
+		lines.push("			}");
+		lines.push("			catch (e) {");
+		lines.push("");
+		lines.push("				if (e.code !== \"ConditionalCheckFailedException\") {");
+		lines.push("					throw e;");
+		lines.push("				}");
+		lines.push("			}");
+		lines.push("");
+		lines.push("		const getResponse = await this.ddb.get({");
+		lines.push(`			TableName: "${prefixedTableName}",`);
 
 		if (range === undefined) {
-			lines.push(`		Key: { ${hash}: item.${hash} },`);
+			lines.push(`			Key: { ${hash}: item.${hash} },`);
 		}
 		else {
-			lines.push(`		Key: { ${hash}: item.${hash}, ${range}: item.${range} },`);
+			lines.push(`			Key: { ${hash}: item.${hash}, ${range}: item.${range} },`);
 		}
 
-		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		lines.push("	}).promise();");
-
-		lines.push("	consumed += getResponse.ConsumedCapacity.CapacityUnits;");
-		lines.push("	existingItem = getResponse.Item;");
-		lines.push("	return existingItem;");
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("		}).promise();");
+		lines.push("");
+		lines.push("		consumed += getResponse.ConsumedCapacity.CapacityUnits;");
+		lines.push("		existingItem = getResponse.Item;");
+		lines.push("		return existingItem;");
 		lines.push("	}");
 		lines.push("	finally {");
+		lines.push("");
 		lines.push("		const diff = process.hrtime(time);");
 		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
 		lines.push(`		this.log.debug("'${methodName}' create-or-get ${prefixedTableName} %d %d %s", existingItem === undefined ? 0 : 1, consumed, elapsed);`);
@@ -385,6 +390,7 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (item) {`);
+		lines.push("");
 		lines.push("	const response = await this.ddb.put({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
 		lines.push("		Item: item,");
