@@ -265,7 +265,10 @@ class RepositoryGenerator {
 
 	generateCreate(lines, tableName, table, methodName, method) {
 
-		this.log.trace("generating create %j...", tableName);
+		this.log.trace(
+			"generating create %j...",
+			tableName
+		);
 
 		let hash = tools.asTrimmed(table.hash);
 		if (hash === undefined) {
@@ -275,35 +278,37 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (item) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
-		lines.push("	const response = await this.ddb.put({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
-		lines.push("		Item: item,");
-		lines.push(`		ConditionExpression: "attribute_not_exists(${hash})", `);
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
-		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-
-			lines.push("		consumed = response.ConsumedCapacity.CapacityUnits;");
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' create ${prefixedTableName} %d %s", consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("");
+		lines.push("	let consumed;");
+		lines.push("	let caught;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
+		lines.push("");
+		lines.push("		const response = await this.ddb.put({");
+		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push("			Item: item,");
+		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("		}).promise();");
+		lines.push("");
+		lines.push("		consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("	}");
+		lines.push("	catch(error) {");
+		lines.push("");
+		lines.push("		caught = error;");
+		lines.push("		throw error;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push("		if (caught === undefined) {");
+		lines.push(`			this.log.debug("'${methodName}' create ${prefixedTableName} %d %s", consumed, elapsed);`);
+		lines.push("		}");
+		lines.push("		else {");
+		lines.push(`			this.log.debug("'${methodName}' create ${prefixedTableName} %j %s", caught.code, elapsed);`);
+		lines.push("		}");
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -321,32 +326,19 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (item) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let existingItem;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let existingItem;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	let putResponse;");
 		lines.push("	try {");
-
 		lines.push("		putResponse = await this.ddb.put({");
 		lines.push(`			TableName: "${prefixedTableName}", `);
 		lines.push("			Item: item,");
 		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
-
-		if (this.generateLog === true) {
-			lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
-
-		if (this.generateLog === true) {
-			lines.push("		consumed = putResponse.ConsumedCapacity.CapacityUnits;");
-		}
-
+		lines.push("		consumed = putResponse.ConsumedCapacity.CapacityUnits;");
 		lines.push("		return;");
 
 		lines.push("	}");
@@ -366,30 +358,18 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: item.${hash}, ${range}: item.${range} },`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
 
-		if (this.generateLog === true) {
-			lines.push("	consumed += getResponse.ConsumedCapacity.CapacityUnits;");
-			lines.push("	existingItem = getResponse.Item;");
-			lines.push("	return existingItem;");
-		}
-		else {
-			lines.push("	return getResponse.Item;");
-		}
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' create-or-get ${prefixedTableName} %d %d %s", existingItem === undefined ? 0 : 1, consumed, elapsed);`);
-			lines.push("	}");
-		}
+		lines.push("	consumed += getResponse.ConsumedCapacity.CapacityUnits;");
+		lines.push("	existingItem = getResponse.Item;");
+		lines.push("	return existingItem;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' create-or-get ${prefixedTableName} %d %d %s", existingItem === undefined ? 0 : 1, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -405,22 +385,12 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (item) {`);
-
 		lines.push("	const response = await this.ddb.put({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
 		lines.push("		Item: item,");
 		lines.push(`		ConditionExpression: "attribute_exists(${hash})", `);
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-			// lines.push("		logConsumedCapacity(response);");
-		}
-
 		lines.push("}");
 	}
 
@@ -510,17 +480,8 @@ class RepositoryGenerator {
 		lines.push("	const response = await this.ddb.put({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
 		lines.push("		Item: item,");
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-			// lines.push("		logConsumedCapacity(response);");
-		}
-
 		lines.push("}");
 	}
 
@@ -554,17 +515,8 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-
-			// lines.push("	logConsumedCapacity(response);");
-		}
-
 		lines.push("}");
 	}
 
@@ -588,47 +540,33 @@ class RepositoryGenerator {
 			lines.push(`async ${methodName} (hash, range) {`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("	let item;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
-		lines.push("	const response = await this.ddb.get({");
-		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push("	let item;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
+		lines.push("		const response = await this.ddb.get({");
+		lines.push(`			TableName: "${prefixedTableName}",`);
 
 		if (range === undefined) {
-			lines.push(`		Key: { ${hash}: hash },`);
+			lines.push(`			Key: { ${hash}: hash },`);
 		}
 		else {
-			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
+			lines.push(`			Key: { ${hash}: hash, ${range}: range },`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 
-		lines.push("	}).promise();");
+		lines.push("		}).promise();");
 
-		if (this.generateLog === true) {
-			lines.push("	item = response.Item;");
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-			lines.push("	return item;");
-		}
-		else {
-			lines.push("	return response.Item;");
-		}
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' get ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
-			lines.push("	}");
-		}
+		lines.push("		item = response.Item;");
+		lines.push("		consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("		return item;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' get ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -652,13 +590,10 @@ class RepositoryGenerator {
 			lines.push(`async ${methodName} (hash, range) {`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("	let item;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let item;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	const response = await this.ddb.get({");
 		lines.push(`		TableName: "${prefixedTableName}",`);
 
@@ -669,33 +604,18 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
 		}
 
-		lines.push("		ConsistentRead: true,");
-
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
-		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-			lines.push("	item = response.Item;");
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-			lines.push("	return item;");
-		}
-		else {
-			lines.push("	return response.Item;");
-		}
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' get-consistent ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
-			lines.push("	}");
-		}
+		lines.push("			ConsistentRead: true,");
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("		}).promise();");
+		lines.push("		item = response.Item;");
+		lines.push("		consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("		return item;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' get-consistent ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -722,15 +642,9 @@ class RepositoryGenerator {
 
 		lines.push("	let item;");
 
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-		}
-
-		if (this.generateLog === true) {
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	if (this.redis.connected) {");
 		lines.push("		try {");
 		if (range === undefined) {
@@ -749,17 +663,6 @@ class RepositoryGenerator {
 		lines.push("			this.log.warn(e)");
 		lines.push("		}");
 		lines.push("	}");
-
-		// if (this.generateLog === true) {
-
-		// 	if (range === undefined) {
-		// 		lines.push(`	this.log.trace("get ${prefixedTableName} / %j...", hash);`);
-		// 	}
-		// 	else {
-		// 		lines.push(`	this.log.trace("get ${prefixedTableName} / %j / %j...", hash, range);`);
-		// 	}
-		// }
-
 		lines.push("	const response = await this.ddb.get({");
 		lines.push(`		TableName: "${prefixedTableName}",`);
 
@@ -770,17 +673,11 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
 
 		lines.push("	item = response.Item;");
-		if (this.generateLog === true) {
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-		}
-
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
 		lines.push("	if (item !== undefined) {");
 		lines.push("		if (this.redis.connected) {");
 		lines.push("			try {");
@@ -800,19 +697,13 @@ class RepositoryGenerator {
 		lines.push("			}");
 		lines.push("		}");
 		lines.push("	}");
-
 		lines.push("	return item;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' get-cached ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' get-cached ${prefixedTableName} %d %d %s", item === undefined ? 0 : 1, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -823,27 +714,14 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName}() {`);
-
-		if (this.generateLog === true) {
-			lines.push("	const time = process.hrtime();");
-		}
-
+		lines.push("	const time = process.hrtime();");
 		lines.push("	const response = await this.ddb.scan({");
 		lines.push(`		TableName: "${prefixedTableName}",`);
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-
-			lines.push("	const diff = process.hrtime(time);");
-			lines.push("	const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`	this.log.debug("'${methodName}' scan ${prefixedTableName} %d %d %s", response.Items.length, response.ConsumedCapacity.CapacityUnits, elapsed);`);
-		}
-
+		lines.push("	const diff = process.hrtime(time);");
+		lines.push("	const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`	this.log.debug("'${methodName}' scan ${prefixedTableName} %d %d %s", response.Items.length, response.ConsumedCapacity.CapacityUnits, elapsed);`);
 		lines.push("	return response.Items;");
 		lines.push("}");
 	}
@@ -865,22 +743,13 @@ class RepositoryGenerator {
 		lines.push(`async ${methodName}() {`);
 
 		lines.push("	let length;");
-
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-		}
-
-		if (this.generateLog === true) {
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	if (this.redis.connected) {");
 		lines.push("		try {");
-
 		lines.push(`			const ids = await this.redis.zrangeAsync("${prefixedTableName}", 0, -1);`);
 		lines.push("			length = ids.length;");
-
 		lines.push("			if (0 < length) {");
 		lines.push("				const multi = this.redis.multi();");
 		lines.push("				for (let i = 0; i < length; i++) {");
@@ -898,23 +767,13 @@ class RepositoryGenerator {
 		lines.push("			this.log.warn(e)");
 		lines.push("		}");
 		lines.push("	}");
-
 		lines.push("	const response = await this.ddb.scan({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
 		lines.push("	const items = response.Items;");
 		lines.push("	length = items.length;");
-
-		if (this.generateLog === true) {
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-		}
-
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
 		lines.push("	if (0 < length) {");
 		lines.push("		if (this.redis.connected) {");
 		lines.push("			try {");
@@ -951,16 +810,12 @@ class RepositoryGenerator {
 		lines.push("		}");
 		lines.push("	}");
 		lines.push("	return items;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' scan-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' scan-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -976,41 +831,26 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (hash) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let length;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let length;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	const response = await this.ddb.query({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
 		lines.push(`		KeyConditionExpression: "${hash} = :hash", `);
 		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-
-			lines.push("	const items = response.Items;");
-			lines.push("	length = items.length;");
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-			lines.push("	return items;");
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' query-table ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-		else {
-			lines.push("	return response.Items;");
-		}
+		lines.push("	const items = response.Items;");
+		lines.push("	length = items.length;");
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("	return items;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' query-table ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -1033,18 +873,13 @@ class RepositoryGenerator {
 		lines.push(`	const setKey = \`${prefixedTableName}!\${hash}\`;`);
 
 		lines.push("	let length;");
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	if (this.redis.connected) {");
 		lines.push("		try {");
-
 		lines.push("			const ids = await this.redis.zrangeAsync(setKey, 0, -1);");
 		lines.push("			length = ids.length;");
-
 		lines.push("			if (0 < length) {");
 		lines.push("				const multi = this.redis.multi();");
 		lines.push("				for (const id of ids) {");
@@ -1061,25 +896,15 @@ class RepositoryGenerator {
 		lines.push("			this.log.warn(e)");
 		lines.push("		}");
 		lines.push("	}");
-
 		lines.push("	const response = await this.ddb.query({");
 		lines.push(`		TableName: "${prefixedTableName}", `);
 		lines.push(`		KeyConditionExpression: "${hash} = :hash", `);
 		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
 		lines.push("	const items = response.Items;");
 		lines.push("	length = items.length;");
-
-		if (this.generateLog === true) {
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-		}
-
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
 		lines.push("	if (0 < length) {");
 		lines.push("		if (this.redis.connected) {");
 		lines.push("			try {");
@@ -1099,7 +924,6 @@ class RepositoryGenerator {
 		lines.push(`					const key = \`${prefixedTableName}!\${id}\`;`);
 		lines.push("					const json = JSON.stringify(item);");
 		lines.push(`					multi.set(key, json, \"EX\", ${ttl});`);
-		// lines.push(`					multi.expire(key, ${ttl});`);
 		lines.push("					ids.push(i);");
 		lines.push("					ids.push(id);");
 		lines.push("				}");
@@ -1116,17 +940,12 @@ class RepositoryGenerator {
 		lines.push("		}");
 		lines.push("	}");
 		lines.push("	return items;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' query-table-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' query-table-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -1139,14 +958,10 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (hash) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let length;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let length;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	const response = await this.ddb.query({");
 		lines.push(`		TableName: "${prefixedTableName}",`);
 		lines.push(`		IndexName: "${indexName}",`);
@@ -1157,28 +972,18 @@ class RepositoryGenerator {
 			lines.push("		ScanIndexForward: false,");
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-
-			lines.push("	const items = response.Items;");
-			lines.push("	length = items.length;");
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-			lines.push("	return items;");
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' query-index ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-		else {
-			lines.push("	return response.Items;");
-		}
+		lines.push("	const items = response.Items;");
+		lines.push("	length = items.length;");
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("	return items;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' query-index ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -1207,24 +1012,14 @@ class RepositoryGenerator {
 
 		lines.push(`async ${methodName} (hash) {`);
 		lines.push(`	const setKey = \`${prefixedTableName}!${indexName}!\${hash}\`;`);
-
 		lines.push("	let length;");
-
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-		}
-
-		if (this.generateLog === true) {
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	if (this.redis.connected) {");
 		lines.push("		try {");
-
 		lines.push("			const ids = await this.redis.zrangeAsync(setKey, 0, -1);");
 		lines.push("			length = ids.length;");
-
 		lines.push("			if (0 < length) {");
 		lines.push("				const multi = this.redis.multi();");
 		lines.push("				for (let i = 0; i < length; i++) {");
@@ -1242,26 +1037,16 @@ class RepositoryGenerator {
 		lines.push("			this.log.warn(e)");
 		lines.push("		}");
 		lines.push("	}");
-
 		lines.push("	const response = await this.ddb.query({");
 		lines.push(`		TableName: "${prefixedTableName}",`);
 		lines.push(`		IndexName: "${indexName}",`);
 		lines.push(`		KeyConditionExpression: "${indexHash} = :hash",`);
 		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
-
 		lines.push("	const items = response.Items;");
 		lines.push("	length = items.length;");
-
-		if (this.generateLog === true) {
-			lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
-		}
-
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
 		lines.push("	if (0 < length) {");
 		lines.push("		if (this.redis.connected) {");
 		lines.push("			try {");
@@ -1298,17 +1083,12 @@ class RepositoryGenerator {
 		lines.push("		}");
 		lines.push("	}");
 		lines.push("	return items;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' query-index-cached ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' query-index-cached ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -1326,16 +1106,12 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (item) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let existingItem;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
-		lines.push("	const getResponse = await this.ddb.get({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
+		lines.push("	let existingItem;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
+		lines.push("		const getResponse = await this.ddb.get({");
+		lines.push(`			TableName: "${prefixedTableName}", `);
 
 		if (range === undefined) {
 			lines.push(`		Key: { ${hash}: item.${hash} },`);
@@ -1344,51 +1120,26 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: item.${hash}, ${range}: item.${range} },`);
 		}
 
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
-		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-			lines.push("	existingItem = getResponse.Item;");
-			lines.push("	consumed = getResponse.ConsumedCapacity.CapacityUnits;");
-		}
-		else {
-			lines.push("	const existingItem = getResponse.Item;");
-		}
-
-		lines.push("	if (existingItem !== undefined) {");
-		lines.push("		return existingItem;");
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("		}).promise();");
+		lines.push("		existingItem = getResponse.Item;");
+		lines.push("		consumed = getResponse.ConsumedCapacity.CapacityUnits;");
+		lines.push("		if (existingItem !== undefined) {");
+		lines.push("			return existingItem;");
+		lines.push("		}");
+		lines.push("		const putResponse = await this.ddb.put({");
+		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push("			Item: item,");
+		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("		}).promise();");
+		lines.push("		consumed += putResponse.ConsumedCapacity.CapacityUnits;");
 		lines.push("	}");
-
-		if (this.generateLog === true) {
-			lines.push("	const putResponse = await this.ddb.put({");
-		}
-		else {
-			lines.push("	await this.ddb.put({");
-		}
-
-		lines.push(`		TableName: "${prefixedTableName}", `);
-		lines.push("		Item: item,");
-		lines.push(`		ConditionExpression: "attribute_not_exists(${hash})", `);
-
-		if (this.generateLog === true) {
-			lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
-		lines.push("	}).promise();");
-
-		if (this.generateLog === true) {
-			lines.push("	consumed += putResponse.ConsumedCapacity.CapacityUnits;");
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' get-or-create ${prefixedTableName} %d %d %s", existingItem === undefined ? 0 : 1, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' get-or-create ${prefixedTableName} %d %d %s", existingItem === undefined ? 0 : 1, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 
 		// const id = item.id;
@@ -1431,27 +1182,14 @@ class RepositoryGenerator {
 		lines.push(`			TableName: "${prefixedTableName}", `);
 		lines.push("			ExclusiveStartKey,");
 		lines.push("			Limit: limit,");
-
-		if (this.generateLog === true) {
-			lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
-
-		if (this.generateLog === true) {
-
-			// lines.push("	logConsumedCapacity(response);");
-		}
-
 		lines.push("		const items = response.Items;");
 		lines.push("		const lastEvaluatedKey = response.LastEvaluatedKey;");
-
 		lines.push("		if (await iterator(items) === true) {");
 		lines.push("			break;");
 		lines.push("		}");
-
 		lines.push("		ExclusiveStartKey = lastEvaluatedKey;");
-
 		lines.push("	} while (ExclusiveStartKey);");
 		lines.push("}");
 	}
@@ -1476,26 +1214,16 @@ class RepositoryGenerator {
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		lines.push(`async ${methodName} (hashes) {`);
-
-		if (this.generateLog === true) {
-			lines.push("	let length;");
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let length;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	const queue = [];");
 		lines.push("	const map = new Map();");
 		lines.push("	const results = [];");
-
 		lines.push("	for (const hash of hashes) {");
-
 		lines.push("		if (map.has(hash)) {");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.warn(\"%j is duplicate.\", hash);");
-		}
-
+		lines.push("			this.log.warn(\"%j is duplicate.\", hash);");
 		lines.push("		}");
 		lines.push("		else {");
 		lines.push("			queue.push(hash);");
@@ -1515,61 +1243,37 @@ class RepositoryGenerator {
 		lines.push(`				"${hash}": hash`);
 		lines.push("			});");
 		lines.push("		}");
-
-		if (this.generateLog === true) {
-			lines.push('		this.log.debug("batch get %d id(s)...", chunk.length);');
-		}
+		lines.push('		this.log.debug("batch get %d id(s)...", chunk.length);');
 
 		// batch get
-
 		lines.push("		const response = await this.ddb.batchGet({");
 		lines.push("			RequestItems: {");
 		lines.push(`				"${prefixedTableName}": {`);
 		lines.push("					Keys: keys");
 		lines.push("				}");
 		lines.push("			},");
-
-		if (this.generateLog === true) {
-			lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
 
-		if (this.generateLog === true) {
-			// accumulate consumed capacity units
-			lines.push("	consumed += response.ConsumedCapacity[0].CapacityUnits;");
-		}
+		// accumulate consumed capacity units
+		lines.push("	consumed += response.ConsumedCapacity[0].CapacityUnits;");
 
 		// get items
 		lines.push(`		const items = response.Responses["${prefixedTableName}"];`);
 		lines.push("		if (0 < items.length) {");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.debug(\"got %d item(s).\", items.length);");
-		}
-
+		lines.push("			this.log.debug(\"got %d item(s).\", items.length);");
 		lines.push("			for (const item of items) {");
-
 		lines.push(`				const hash = item.${hash};`);
 		lines.push("				const value = map.get(hash);");
-
 		lines.push("				if (value === void 0) {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value not found.\");");
-		}
-
+		lines.push("					this.log.error(\"value not found.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 		lines.push("				else if (value === null) {");
 		lines.push("					map.set(hash, item);");
 		lines.push("				}");
 		lines.push("				else {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value already in map.\");");
-		}
-
+		lines.push("					this.log.error(\"value already in map.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 
@@ -1581,13 +1285,8 @@ class RepositoryGenerator {
 		lines.push("		if (unprocessedKeys === void 0) {");
 		lines.push("		}");
 		lines.push("		else {");
-
 		lines.push("			const keys = unprocessedKeys.Keys;");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.debug(\"%d id(s) are unprocessed.\", keys.length);");
-		}
-
+		lines.push("			this.log.debug(\"%d id(s) are unprocessed.\", keys.length);");
 		lines.push("			for (const key of keys) {");
 
 		lines.push(`				const hash = key.${hash};`);
@@ -1595,45 +1294,27 @@ class RepositoryGenerator {
 
 		// check (optional)
 		lines.push("				if (value === void 0) {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value not found.\");");
-		}
-
+		lines.push("					this.log.error(\"value not found.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 		lines.push("				else if (value === null) {");
 		lines.push("				}");
 		lines.push("				else {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value already in map.\");");
-		}
-
+		lines.push("					this.log.error(\"value already in map.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
-
 		lines.push("				queue.push(hash);");
 		lines.push("			}");
 		lines.push("		}");
 		lines.push("	} while(0 < queue.length);");
-
-		if (this.generateLog === true) {
-			lines.push("	length = results.length;");
-		}
-
+		lines.push("	length = results.length;");
 		lines.push("	return results;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' batch-get ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' batch-get ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 
@@ -1660,25 +1341,16 @@ class RepositoryGenerator {
 		lines.push(`async ${methodName} (hashes) {`);
 
 		lines.push("	let length;");
-
-		if (this.generateLog === true) {
-			lines.push("	let consumed = 0;");
-			lines.push("	const time = process.hrtime();");
-			lines.push("	try {");
-		}
-
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
 		lines.push("	const queue = [];");
 		lines.push("	const map = new Map();");
 		lines.push("	let results;");
 
 		lines.push("	for (const hash of hashes) {");
-
 		lines.push("		if (map.has(hash)) {");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.warn(\"%j is duplicate.\", hash);");
-		}
-
+		lines.push("			this.log.warn(\"%j is duplicate.\", hash);");
 		lines.push("		}");
 		lines.push("		else {");
 		lines.push("			queue.push(hash);");
@@ -1721,101 +1393,61 @@ class RepositoryGenerator {
 		lines.push(`				"${hash}": hash`);
 		lines.push("			});");
 		lines.push("		}");
-
-		if (this.generateLog === true) {
-			lines.push('		this.log.debug("batch get %d id(s)...", chunk.length);');
-		}
+		lines.push('		this.log.debug("batch get %d id(s)...", chunk.length);');
 
 		// batch get
-
 		lines.push("		const response = await this.ddb.batchGet({");
 		lines.push("			RequestItems: {");
 		lines.push(`				"${prefixedTableName}": {`);
 		lines.push("					Keys: keys");
 		lines.push("				}");
 		lines.push("			},");
-
-		if (this.generateLog === true) {
-			lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
-		}
-
+		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
 
-		if (this.generateLog === true) {
-			// accumulate consumed capacity units
-			lines.push("	consumed += response.ConsumedCapacity[0].CapacityUnits;");
-		}
+		// accumulate consumed capacity units
+		lines.push("	consumed += response.ConsumedCapacity[0].CapacityUnits;");
 
 		// get items
 		lines.push(`		const items = response.Responses["${prefixedTableName}"];`);
 		lines.push("		if (0 < items.length) {");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.debug(\"got %d item(s).\", items.length);");
-		}
-
+		lines.push("			this.log.debug(\"got %d item(s).\", items.length);");
 		lines.push("			for (const item of items) {");
-
 		lines.push(`				const hash = item.${hash};`);
 		lines.push("				const value = map.get(hash);");
-
 		lines.push("				if (value === void 0) {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value not found.\");");
-		}
-
+		lines.push("					this.log.error(\"value not found.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 		lines.push("				else if (value === null) {");
 		lines.push("					map.set(hash, item);");
 		lines.push("				}");
 		lines.push("				else {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value already in map.\");");
-		}
-
+		lines.push("					this.log.error(\"value already in map.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
-
 		lines.push("				results.push(item);");
 		lines.push("			}");
 		lines.push("		}");
-
 		lines.push(`		const unprocessedKeys = response.UnprocessedKeys["${prefixedTableName}"];`);
 		lines.push("		if (unprocessedKeys === void 0) {");
 		lines.push("		}");
 		lines.push("		else {");
-
 		lines.push("			const keys = unprocessedKeys.Keys;");
-
-		if (this.generateLog === true) {
-			lines.push("			this.log.debug(\"%d id(s) are unprocessed.\", keys.length);");
-		}
-
+		lines.push("			this.log.debug(\"%d id(s) are unprocessed.\", keys.length);");
 		lines.push("			for (const key of keys) {");
-
 		lines.push(`				const hash = key.${hash};`);
 		lines.push("				const value = map.get(hash);");
 
 		// check (optional)
 		lines.push("				if (value === void 0) {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value not found.\");");
-		}
-
+		lines.push("					this.log.error(\"value not found.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 		lines.push("				else if (value === null) {");
 		lines.push("				}");
 		lines.push("				else {");
-
-		if (this.generateLog === true) {
-			lines.push("					this.log.error(\"value already in map.\");");
-		}
-
+		lines.push("					this.log.error(\"value already in map.\");");
 		lines.push("					throw new Error();");
 		lines.push("				}");
 
@@ -1823,7 +1455,6 @@ class RepositoryGenerator {
 		lines.push("			}");
 		lines.push("		}");
 		lines.push("	} while(0 < queue.length);");
-
 		lines.push("	length = results.length;");
 
 		// cache items
@@ -1846,19 +1477,13 @@ class RepositoryGenerator {
 		lines.push("			}");
 		lines.push("		}");
 		lines.push("	}");
-
 		lines.push("	return results;");
-
-		if (this.generateLog === true) {
-
-			lines.push("	}");
-			lines.push("	finally {");
-			lines.push("		const diff = process.hrtime(time);");
-			lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-			lines.push(`		this.log.debug("'${methodName}' batch-get-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
-			lines.push("	}");
-		}
-
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' batch-get-cached ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
 		lines.push("}");
 	}
 }
