@@ -214,16 +214,21 @@ class StdoutAppender {
 
 	append(ts, category, level, message, args) {
 
-		const stdout = process.stdout;
+		if (level < this.max) {
 
-		if (stdout.isTTY) {
-			stdout.write(`${this.getTitleEscape(level)}${new Date(ts).toISOString()} ${this.getName(level)} ${category}\x1b[0m ${this.getBodyEscape(level)}${message}\x1b[0m${os.EOL}`);
-		}
-		else {
-			stdout.write(`${new Date(ts).toISOString()} ${this.getName(level)} ${category} ${message}${os.EOL}`);
+			const stdout = process.stdout;
+
+			if (stdout.isTTY) {
+				stdout.write(`${this.getTitleEscape(level)}${new Date(ts).toISOString()} ${this.getName(level)} ${category}\x1b[0m ${this.getBodyEscape(level)}${message}\x1b[0m${os.EOL}`);
+			}
+			else {
+				stdout.write(`${new Date(ts).toISOString()} ${this.getName(level)} ${category} ${message}${os.EOL}`);
+			}
 		}
 	}
 }
+
+StdoutAppender.prototype.max = Infinity;
 
 class RedisAppender {
 
