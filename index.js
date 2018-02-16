@@ -20,5 +20,7 @@ module.exports = {
 	...require("./src/DiscoveryService"),
 	...require("./src/createRedisConnection"),
 
-	...require("./src/ServiceClientBase")
+	...require("./src/createHttpServer"),
+	...require("./src/ServiceClientBase"),
+	...require("./src/RepositoryGenerator2")
 };
