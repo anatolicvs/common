@@ -11,20 +11,14 @@ const {
 	ConsoleLog
 } = require("./src/logging.js");
 
-const {
-	RepositoryGenerator
-} = require("./src/RepositoryGenerator");
-
 module.exports = {
 	tools,
 
-	SimpleLogService,
-	StdoutAppender,
-	RedisAppender,
-	DynamoDbAppender,
-	Log,
-	NoLog,
-	ConsoleLog,
+	...require("./src/logging.js"),
+	...require("./src/RepositoryGenerator"),
 
-	RepositoryGenerator
+	...require("./src/DiscoveryService"),
+	...require("./src/createRedisConnection"),
+
+	...require("./src/ServiceClientBase")
 };
