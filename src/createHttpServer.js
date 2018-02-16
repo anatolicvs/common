@@ -5,7 +5,7 @@ const { parse: parseUrl } = require("url");
 ServerResponse.prototype.json = function (value) {
 
 	const payload = Buffer.from(JSON.stringify(
-		order
+		value
 	));
 
 	this.statusCode = 200;
