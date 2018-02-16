@@ -1,6 +1,18 @@
 "use strict";
-const { createServer } = require("http");
+const { createServer, ServerResponse } = require("http");
 const { parse: parseUrl } = require("url");
+
+ServerResponse.prototype.json = function (value) {
+
+	const payload = Buffer.from(JSON.stringify(
+		order
+	));
+
+	this.statusCode = 200;
+	this.setHeader("Content-Type", "application/json; charset=utf-8");
+	this.setHeader("Content-Length", `${payload.length}`);
+	this.end(payload);
+}
 
 function createHttpServer({ api, log }) {
 

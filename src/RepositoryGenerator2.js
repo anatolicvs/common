@@ -1,13 +1,17 @@
 "use strict";
 
+class RepositoryBase {
+}
+
+RepositoryBase.prototype.log = null;
+RepositoryBase.prototype.ddb = null;
+
 class RepositoryGenerator2 {
 
 	generate(tables) {
 
-		class Repository { }
+		class Repository extends RepositoryBase { }
 		const prototype = Repository.prototype;
-		prototype.log = null;
-		prototype.ddb = null;
 
 		for (const tableName in tables) {
 
