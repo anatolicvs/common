@@ -1,6 +1,7 @@
 "use strict";
 const { createServer, ServerResponse } = require("http");
 const { parse: parseUrl } = require("url");
+const { validate } = require("./validate");
 
 ServerResponse.prototype.json = function (value) {
 
@@ -121,6 +122,27 @@ function createHttpServer({ api, log }) {
 			}
 
 			case "object": {
+
+				if (handler.request === undefined) {
+					// ok
+				}
+				else {
+	
+					const errors = validate(
+						handler.request,
+						request.body,
+						"body"
+					);
+
+					if (errors === undefined) {
+						// ok
+					}
+					else {
+						response.statusCode = 400;
+						response.end();
+						return;
+					}
+				}
 
 				try {
 					await handler.handle(
