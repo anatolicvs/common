@@ -78,39 +78,92 @@ function createHttpServer({ api, log }) {
 			}
 		}
 
-		try {
-			await handler(
-				request,
-				response
-			);
-		}
-		catch (error) {
+		switch (typeof handler) {
 
-			log.warn(error);
+			case "function": {
 
-			if (response.finished) {
-				// ok
+				try {
+					await handler(
+						request,
+						response
+					);
+				}
+				catch (error) {
+
+					log.warn(error);
+
+					if (response.finished) {
+						// ok
+					}
+					else if (response.headersSent) {
+						response.end();
+					}
+					else {
+						response.statusCode = 500;
+						response.end();
+					}
+
+					return;
+				}
+
+				if (response.finished) {
+					// ok
+				}
+				else if (response.headersSent) {
+					response.end();
+				}
+				else {
+					response.statusCode = 500;
+					response.end();
+				}
+
+				break;
 			}
-			else if (response.headersSent) {
-				response.end();
+
+			case "object": {
+
+				try {
+					await handler.handle(
+						request,
+						response
+					);
+				}
+				catch (error) {
+
+					log.warn(error);
+
+					if (response.finished) {
+						// ok
+					}
+					else if (response.headersSent) {
+						response.end();
+					}
+					else {
+						response.statusCode = 500;
+						response.end();
+					}
+
+					return;
+				}
+
+				if (response.finished) {
+					// ok
+				}
+				else if (response.headersSent) {
+					response.end();
+				}
+				else {
+					response.statusCode = 500;
+					response.end();
+				}
+
+				break;
 			}
-			else {
+
+			default: {
 				response.statusCode = 500;
 				response.end();
 			}
-
-			return;
-		}
-
-		if (response.finished) {
-			// ok
-		}
-		else if (response.headersSent) {
-			response.end();
-		}
-		else {
-			response.statusCode = 500;
-			response.end();
 		}
 	});
 }
