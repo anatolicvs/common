@@ -72,6 +72,7 @@ class RepositoryGenerator2 {
 			}
 			catch (error) {
 				caught = error;
+				throw error;
 			}
 			finally {
 
@@ -110,6 +111,7 @@ class RepositoryGenerator2 {
 			}
 			catch (error) {
 				caught = error;
+				throw error;
 			}
 			finally {
 
