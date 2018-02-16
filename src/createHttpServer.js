@@ -127,7 +127,7 @@ function createHttpServer({ api, log }) {
 					// ok
 				}
 				else {
-	
+
 					const errors = validate(
 						handler.request,
 						request.body,
@@ -138,6 +138,11 @@ function createHttpServer({ api, log }) {
 						// ok
 					}
 					else {
+
+						for (const error of errors) {
+							log.warn(error);
+						}
+
 						response.statusCode = 400;
 						response.end();
 						return;
