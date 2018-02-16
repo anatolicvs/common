@@ -79,10 +79,10 @@ class RepositoryGenerator2 {
 				const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 				if (caught === undefined) {
-					console.log("get %j(%j=%j) %d %s", prefixedTableName, hashName, hash, item === undefined ? 0 : 1, elapsed);
+					this.log.trace("get %j(%j=%j) %d %s", prefixedTableName, hashName, hash, item === undefined ? 0 : 1, elapsed);
 				}
 				else {
-					console.log("get %j(%j=%j) %j %s", prefixedTableName, hashName, hash, caught.code, elapsed);
+					this.log.trace("get %j(%j=%j) %j %s", prefixedTableName, hashName, hash, caught.code, elapsed);
 				}
 			}
 		}
