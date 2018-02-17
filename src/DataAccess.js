@@ -376,10 +376,21 @@ class DataAccess {
 		}
 	}
 
-	async updateVersioned(tableName, hash, item) {
+	async updateVersioned(tableName, versionName, item) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
+		assertNonEmptyString(versionName);
+
+		const version = item[versionName];
+
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const nextVersion = Math.floor(version) + 1;
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -390,45 +401,22 @@ class DataAccess {
 
 		try {
 
-			const iv = item[kItemVersionKey];
+			const response = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: { ...item, [versionName]: nextVersion },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
 
-			if (Number.isFinite(iv)) {
+			item[versionName] = nextVersion;
 
-				const nextiv = Math.floor(iv) + 1;
-
-				const response = await this.ddb.put({
-					TableName: prefixedTableName,
-					Item: { ...item, [kItemVersionKey]: nextiv },
-					ConditionExpression: "#iv = :iv",
-					ExpressionAttributeNames: {
-						"#iv": kItemVersionKey
-					},
-					ExpressionAttributeValues: {
-						":iv": iv
-					},
-					ReturnConsumedCapacity: "TOTAL"
-				}).promise();
-
-				item[kItemVersionKey] = nextiv;
-
-				consumed = response.ConsumedCapacity.CapacityUnits;
-			}
-			else {
-
-				const response = await this.ddb.put({
-					TableName: prefixedTableName,
-					Item: { ...item, [kItemVersionKey]: 0 },
-					ConditionExpression: `attribute_exists(${hash}) and attribute_not_exists(#iv)`,
-					ExpressionAttributeNames: {
-						"#iv": kItemVersionKey
-					},
-					ReturnConsumedCapacity: "TOTAL"
-				}).promise();
-
-				item[kItemVersionKey] = 0;
-
-				consumed = response.ConsumedCapacity.CapacityUnits;
-			}
+			consumed = response.ConsumedCapacity.CapacityUnits;
 		}
 		catch (error) {
 
@@ -437,14 +425,16 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 
 				this.log.debug(
-					"update-versioned %s %d %s",
+					"update-versioned %s(%d->%d) %d %s",
 					prefixedTableName,
+					version,
+					nextVersion,
 					consumed,
 					elapsed
 				);
@@ -452,8 +442,10 @@ class DataAccess {
 			else {
 
 				this.log.debug(
-					"update-versioned %s %j %s",
+					"update-versioned %s(%d->%d) %s %s",
 					prefixedTableName,
+					version,
+					nextVersion,
 					caught.code,
 					elapsed
 				);
@@ -567,11 +559,11 @@ class DataAccess {
 		}
 	}
 
-	async get(tableName, hash, range, hashValue, rangeValue) {
+	async get(tableName, hashName, hash, rangeName, range) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
-		assertOptionalNonEmptyString(range);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -585,7 +577,7 @@ class DataAccess {
 
 			const response = await this.ddb.get({
 				TableName: prefixedTableName,
-				Key: range === undefined ? { [hash]: hashValue } : { [hash]: hashValue, [range]: rangeValue },
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
@@ -603,8 +595,8 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 
@@ -619,7 +611,65 @@ class DataAccess {
 			else {
 
 				this.log.debug(
-					"get %s %j %s",
+					"get %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async getConsistent(tableName, hashName, hash, rangeName, range) {
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: range === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ConsistentRead: true,
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			const item = response.Item;
+
+			length = item === undefined ? 0 : 1;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			return item;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.debug(
+					"get-consistent %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"get-consistent %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
