@@ -15,6 +15,16 @@ ServerResponse.prototype.json = function (value) {
 	this.end(payload);
 }
 
+ServerResponse.prototype.ok = function (data) {
+
+	this.json({ code: "ok", data });
+}
+
+ServerResponse.prototype.fault = function (code) {
+
+	this.json({ code });
+}
+
 function createHttpServer({ api, log }) {
 
 	return createServer(async (request, response) => {
@@ -29,9 +39,8 @@ function createHttpServer({ api, log }) {
 		];
 
 		if (table === undefined) {
-			response.statusCode = 400;
-			response.setHeader("Connection", "close");
-			response.end();
+
+			response.fault("invalid-request");
 			return;
 		}
 
@@ -44,11 +53,12 @@ function createHttpServer({ api, log }) {
 		];
 
 		if (handler === undefined) {
-			response.statusCode = 400;
-			response.setHeader("Connection", "close");
-			response.end();
+
+			response.fault("invalid-request");
 			return;
 		}
+
+		// read any content
 
 		switch (method) {
 
@@ -79,118 +89,87 @@ function createHttpServer({ api, log }) {
 			}
 		}
 
-		switch (typeof handler) {
+		// validate request
 
-			case "function": {
+		if (handler.request === undefined) {
+			// ok
+		}
+		else {
 
-				try {
-					await handler(
-						request,
-						response
-					);
-				}
-				catch (error) {
+			const errors = validate(
+				handler.request,
+				request.body,
+				"body"
+			);
 
-					log.warn(error);
-
-					if (response.finished) {
-						// ok
-					}
-					else if (response.headersSent) {
-						response.end();
-					}
-					else {
-						response.statusCode = 500;
-						response.end();
-					}
-
-					return;
-				}
-
-				if (response.finished) {
-					// ok
-				}
-				else if (response.headersSent) {
-					response.end();
-				}
-				else {
-					response.statusCode = 500;
-					response.end();
-				}
-
-				break;
+			if (errors === undefined) {
+				// ok
 			}
+			else {
 
-			case "object": {
-
-				if (handler.request === undefined) {
-					// ok
-				}
-				else {
-
-					const errors = validate(
-						handler.request,
-						request.body,
-						"body"
-					);
-
-					if (errors === undefined) {
-						// ok
-					}
-					else {
-
-						for (const error of errors) {
-							log.warn(error);
-						}
-
-						response.statusCode = 400;
-						response.end();
-						return;
-					}
-				}
-
-				try {
-					await handler.handle(
-						request,
-						response
-					);
-				}
-				catch (error) {
-
+				for (const error of errors) {
 					log.warn(error);
-
-					if (response.finished) {
-						// ok
-					}
-					else if (response.headersSent) {
-						response.end();
-					}
-					else {
-						response.statusCode = 500;
-						response.end();
-					}
-
-					return;
 				}
 
-				if (response.finished) {
-					// ok
-				}
-				else if (response.headersSent) {
-					response.end();
-				}
-				else {
-					response.statusCode = 500;
-					response.end();
-				}
-
-				break;
+				response.fault("invalid-request");
+				return;
 			}
+		}
 
-			default: {
-				response.statusCode = 500;
+		// invoke handler
+
+		let data;
+		try {
+			data = await handler.handle(
+				request,
+				response
+			);
+		}
+		catch (error) {
+
+			log.warn(
+				error
+			);
+
+			if (response.finished) {
+				// ok
+			}
+			else if (response.headersSent) {
 				response.end();
 			}
+			else {
+
+				let code;
+				const faults = request.faults;
+				if (faults === undefined) {
+					code = "internal-error";
+				}
+				else {
+					const fault = faults[error.message];
+					if (fault === undefined) {
+						code = "internal-error";
+					}
+					else {
+						code = fault;
+					}
+				}
+
+				response.fault(code);
+			}
+
+			return;
+		}
+
+		// check response
+
+		if (response.finished) {
+			// ok
+		}
+		else if (response.headersSent) {
+			response.end();
+		}
+		else {
+			response.ok(data);
 		}
 	});
 }

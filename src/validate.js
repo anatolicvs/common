@@ -39,6 +39,17 @@ function validate(schema, instance, name) {
 		);
 	}
 
+	function reportCompound(compound) {
+
+		if (errors === undefined) {
+			errors = [];
+		}
+
+		errors.push(
+			compound
+		);
+	}
+
 	function validateObject(instance, name) {
 
 		if (instance === null) {
@@ -228,7 +239,7 @@ function validate(schema, instance, name) {
 		}
 		else {
 			report(
-				"%s (%j) is not an object.",
+				"%s (%j) is not an integer.",
 				name,
 				instance
 			);
@@ -366,6 +377,43 @@ function validate(schema, instance, name) {
 				default:
 					throw new Error(format("unknown type %j.", schema));
 			}
+		}
+		else if (isArray(schema)) {
+
+			if (0 < schema.length) {
+
+				let match;
+				let acc;
+				for (const item of schema) {
+
+					const errors = validate(item, instance, name);
+					if (errors === undefined) {
+						match = true;
+						break;
+					}
+
+					if (acc === undefined) {
+						acc = [];
+					}
+
+					acc.push(errors);
+				}
+
+				if (match === true) {
+					continue;
+				}
+
+				reportCompound(
+					acc
+				);
+
+				continue;
+			}
+
+			report(
+				"%s is not permitted to match anything.",
+				name
+			);
 		}
 		else {
 
