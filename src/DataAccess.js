@@ -39,7 +39,7 @@ class DataAccess {
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
-		let consumed = 0;
+		let consumed;
 		let caught;
 
 		const time = process.hrtime();
@@ -49,7 +49,10 @@ class DataAccess {
 			const response = await this.ddb.put({
 				TableName: prefixedTableName,
 				Item: item,
-				ConditionExpression: `attribute_not_exists(${hash})`,
+				ConditionExpression: `attribute_not_exists(#hash)`,
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
@@ -62,8 +65,67 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.debug(
+					"create %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"create %s %j %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async createVersioned(tableName, hashName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(versionName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: { ...item, [versionName]: 0 },
+				ConditionExpression: `attribute_not_exists(#hash)`,
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			item[versionName] = 0;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 
