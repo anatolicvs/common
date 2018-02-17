@@ -174,7 +174,20 @@ function createHttpServer({ api, log }) {
 			response.end();
 		}
 		else {
-			response.ok(data);
+
+			if (handler.response === undefined) {
+				response.ok(data);
+			}
+			else {
+
+				const errors = validate(handler.response, data, "response");
+				if (errors === undefined) {
+					response.ok(data);
+				}
+				else {
+					response.fault("internal-error");
+				}
+			}
 		}
 	});
 }
