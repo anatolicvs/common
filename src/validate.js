@@ -3,6 +3,8 @@ const { format } = require("util");
 const { isArray } = Array;
 const { isInteger, isFinite } = Number;
 
+const regexpCache = {};
+
 function validate(schema, instance, name) {
 
 	const queue = [];
@@ -318,6 +320,47 @@ function validate(schema, instance, name) {
 		}
 	}
 
+	function validateSchemaPattern(instance, name, schema) {
+
+		const { pattern } = schema;
+
+		if (typeof instance === "string") {
+			// ok
+		}
+		else {
+
+			report(
+				"%s (%j) does not match pattern (%s).",
+				name,
+				instance,
+				pattern
+			);
+
+			return;
+		}
+
+		let regexp = regexpCache[pattern];
+		if (regexp === undefined) {
+			regexp = new RegExp(pattern);
+			regexpCache[pattern] = regexp;
+		}
+
+		if (regexp.test(instance)) {
+			// ok
+		}
+		else {
+
+			report(
+				"%s (%j) does not match pattern (%s).",
+				name,
+				instance,
+				pattern
+			);
+
+			return;
+		}
+	}
+
 	enqueue(
 		schema,
 		instance,
@@ -464,6 +507,10 @@ function validate(schema, instance, name) {
 
 				case "constant":
 					validateSchemaConstant(instance, name, schema);
+					break;
+
+				case "pattern":
+					validateSchemaPattern(instance, name, schema);
 					break;
 
 				default:
