@@ -145,7 +145,7 @@ function createHttpServer({ api, log }) {
 			else {
 
 				let code;
-				const faults = request.faults;
+				const faults = handler.faults;
 				if (faults === undefined) {
 					code = "internal-error";
 				}
