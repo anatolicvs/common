@@ -620,6 +620,261 @@ class DataAccess {
 		}
 	}
 
+	async getCached(ttl, tableName, hashName, hash, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		let item;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			if (this.redis.connected) {
+
+				try {
+
+					const json = await this.redis.getAsync(
+						key
+					);
+
+					if (json !== null) {
+
+						item = JSON.parse(
+							json
+						);
+
+						return item;
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const response = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			item = response.Item;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (item !== undefined) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const json = JSON.stringify(
+							item
+						);
+
+						await this.redis.setAsync(key, json, "EX", ttl);
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						);
+					}
+				}
+			}
+
+			return item;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.debug(
+					"get-cached %s %d %d %s",
+					prefixedTableName,
+					item === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"get-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async getCachedVersioned(ttl, tableName, hashName, hash, versionName, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(versionName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		let item;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			if (this.redis.connected) {
+
+				try {
+
+					const result = await this.redis.zrangeAsync(
+						key,
+						-1,
+						-1,
+						"WITHSCORES"
+					);
+
+					if (result.length === 2) {
+
+						const json = result[0];
+						const scoreString = result[1];
+
+						item = JSON.parse(
+							json
+						);
+
+						const score = Number.parseFloat(
+							scoreString
+						);
+
+						if (item[versionName] === score) {
+							return item;
+						}
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const response = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			item = response.Item;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (item !== undefined) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const iv = item[versionName];
+						const json = JSON.stringify(
+							item
+						);
+
+						//await this.redis.setAsync(key, json, "EX", ttl);
+
+						const multi = this.redis.multi();
+
+						multi.zadd(
+							key,
+							iv,
+							json
+						);
+
+						multi.expire(
+							key,
+							ttl
+						);
+
+						await multi.execAsync();
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						);
+					}
+				}
+			}
+
+			return item;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.debug(
+					"get-cached-versioned %s %d %d %s",
+					prefixedTableName,
+					item === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"get-cached-versioned %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async getConsistent(tableName, hashName, hash, rangeName, range) {
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
