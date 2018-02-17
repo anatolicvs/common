@@ -15,14 +15,19 @@ ServerResponse.prototype.json = function (value) {
 	this.end(payload);
 }
 
-ServerResponse.prototype.ok = function (data) {
+ServerResponse.prototype.respond = function (code, data) {
 
-	this.json({ code: "ok", data });
+	this.json({ code, data });
 }
 
-ServerResponse.prototype.fault = function (code) {
+ServerResponse.prototype.ok = function (data) {
 
-	this.json({ code });
+	this.respond("ok", data);
+}
+
+ServerResponse.prototype.fault = function (fault, data) {
+
+	this.respond(fault, data);
 }
 
 function createHttpServer({ api, log }) {
@@ -111,7 +116,7 @@ function createHttpServer({ api, log }) {
 					log.warn(error);
 				}
 
-				response.fault("invalid-request");
+				response.fault("invalid-request", errors);
 				return;
 			}
 		}
