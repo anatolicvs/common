@@ -5,7 +5,7 @@ const RedisServer = require('redis-server');
 const bluebird = require("bluebird");
 
 const { NoLog, ConsoleLog, tools } = require("..");
-const { DynamoRedisAccess } = require("../src/DynamoRedisAccess");
+const { DataAccess } = require("../src/DataAccess");
 const { MockDynamoDB } = require("./MockDynamoDB.js");
 
 bluebird.promisifyAll(redis.RedisClient.prototype);
@@ -111,7 +111,7 @@ describe("RepositoryGenerator", () => {
 			redisClient.once("connect", resolve);
 		});
 
-		dba = new DynamoRedisAccess();
+		dba = new DataAccess();
 		dba.log = NoLog.instance;
 		dba.ddb = mockDynamoDB.ddb;
 		dba.redis = redisClient;

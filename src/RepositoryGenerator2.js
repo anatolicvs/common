@@ -44,6 +44,26 @@ class RepositoryGenerator2 {
 						break;
 					}
 
+					case "create": {
+
+						if (tableInfo.versioned === true) {
+
+							prototype[methodName] = this.generateCreateVersioned(
+								prefixedTableName,
+								tableInfo.hash,
+								tableInfo.versionProperty
+							);
+						}
+						else {
+
+							prototype[methodName] = this.generateCreate(
+								prefixedTableName,
+								tableInfo.hash
+							);
+						}
+
+						break;
+					}
 				}
 			}
 		}
@@ -57,17 +77,22 @@ class RepositoryGenerator2 {
 
 			const time = process.hrtime();
 			let item;
+			let consumed;
 			let caught;
 
 			try {
+
 				const response = await this.ddb.get({
 					TableName: prefixedTableName,
 					Key: {
 						[hashName]: hash
-					}
+					},
+					ReturnConsumedCapacity: "TOTAL"
 				}).promise();
 
 				item = response.Item;
+				consumed = response.ConsumedCapacity.CapacityUnits;
+
 				return item;
 			}
 			catch (error) {
@@ -80,10 +105,10 @@ class RepositoryGenerator2 {
 				const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 				if (caught === undefined) {
-					this.log.trace("get %j(%j=%j) %d %s", prefixedTableName, hashName, hash, item === undefined ? 0 : 1, elapsed);
+					this.log.trace("get %s(%s=%j) %d %d %s", prefixedTableName, hashName, hash, item === undefined ? 0 : 1, consumed, elapsed);
 				}
 				else {
-					this.log.trace("get %j(%j=%j) %j %s", prefixedTableName, hashName, hash, caught.code, elapsed);
+					this.log.trace("get %s(%s=%j) %s %s", prefixedTableName, hashName, hash, caught.code, elapsed);
 				}
 			}
 		}
@@ -95,21 +120,27 @@ class RepositoryGenerator2 {
 
 			const time = process.hrtime();
 			let item;
+			let consumed;
 			let caught;
 
 			try {
+
 				const response = await this.ddb.get({
 					TableName: prefixedTableName,
 					Key: {
 						[hashName]: hash,
 						[rangeName]: range
-					}
+					},
+					ReturnConsumedCapacity: "TOTAL"
 				}).promise();
 
 				item = response.Item;
+				consumed = response.ConsumedCapacity.CapacityUnits;
+
 				return item;
 			}
 			catch (error) {
+
 				caught = error;
 				throw error;
 			}
@@ -119,10 +150,96 @@ class RepositoryGenerator2 {
 				const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 				if (caught === undefined) {
-					this.log.trace("get %j(%j=%j,%j=%j) %d %s", prefixedTableName, hashName, hash, rangeName, range, item === undefined ? 0 : 1, elapsed);
+					this.log.trace("get %s(%s=%j,%s=%j) %d %d %s", prefixedTableName, hashName, hash, rangeName, range, item === undefined ? 0 : 1, consumed, elapsed);
 				}
 				else {
-					this.log.trace("get %j(%j=%j,%j=%j) %j %s", prefixedTableName, hashName, hash, rangeName, range, caught.code, elapsed);
+					this.log.trace("get %s(%s=%j,%s=%j) %s %s", prefixedTableName, hashName, hash, rangeName, range, caught.code, elapsed);
+				}
+			}
+		}
+	}
+
+	generateCreate(prefixedTableName, hashName) {
+
+		return async function (item) {
+
+			const time = process.hrtime();
+			let consumed;
+			let caught;
+
+			try {
+
+				const response = await this.ddb.put({
+					TableName: prefixedTableName,
+					Item: item,
+					ConditionExpression: "attribute_not_exists(#hash)",
+					ExpressionAttributeNames: {
+						"#hash": hashName
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				consumed = response.ConsumedCapacity.CapacityUnits;
+			}
+			catch (error) {
+
+				caught = error;
+				throw error;
+			}
+			finally {
+
+				const [s, ns] = process.hrtime(time);
+				const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+				if (caught === undefined) {
+					this.log.debug("create %s %d %s", prefixedTableName, consumed, elapsed);
+				}
+				else {
+					this.log.debug("create %s %s %s", prefixedTableName, caught.code, elapsed);
+				}
+			}
+		}
+	}
+
+	generateCreateVersioned(prefixedTableName, hashName, versionProperty) {
+
+		return async function (item) {
+
+			const time = process.hrtime();
+			let consumed;
+			let caught;
+
+			try {
+
+				const response = await this.ddb.put({
+					TableName: prefixedTableName,
+					Item: { ...item, [versionProperty]: 0 },
+					ConditionExpression: "attribute_not_exists(#hash)",
+					ExpressionAttributeNames: {
+						"#hash": hashName
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				item[versionProperty] = 0;
+
+				consumed = response.ConsumedCapacity.CapacityUnits;
+			}
+			catch (error) {
+
+				caught = error;
+				throw error;
+			}
+			finally {
+
+				const [s, ns] = process.hrtime(time);
+				const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+				if (caught === undefined) {
+					this.log.debug("create-versioned %s %d %s", prefixedTableName, consumed, elapsed);
+				}
+				else {
+					this.log.debug("create-versioned %s %s %s", prefixedTableName, caught.code, elapsed);
 				}
 			}
 		}

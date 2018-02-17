@@ -30,7 +30,7 @@ function assertOptionalNonEmptyString(value) {
 	);
 }
 
-class DynamoRedisAccess {
+class DataAccess {
 
 	async create(tableName, hash, item) {
 
@@ -997,11 +997,11 @@ class DynamoRedisAccess {
 	}
 }
 
-DynamoRedisAccess.prototype.log = null;
-DynamoRedisAccess.prototype.ddb = null;
-DynamoRedisAccess.prototype.redis = null;
-DynamoRedisAccess.prototype.tableNamePrefix = null;
+DataAccess.prototype.log = null;
+DataAccess.prototype.ddb = null;
+DataAccess.prototype.redis = null;
+DataAccess.prototype.tableNamePrefix = null;
 
 module.exports = {
-	DynamoRedisAccess
+	DataAccess
 };
