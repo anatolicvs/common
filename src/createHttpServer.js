@@ -69,27 +69,49 @@ function createHttpServer({ api, log }) {
 
 			case "POST": {
 
-				await new Promise((resolve, reject) => {
+				let body;
 
-					const chunks = [];
+				try {
+					body = await new Promise((resolve, reject) => {
 
-					request.on("data", chunk => {
+						const chunks = [];
 
-						chunks.push(
-							chunk
-						);
+						request.on("data", chunk => {
+
+							chunks.push(
+								chunk
+							);
+						});
+
+						request.on("end", () => {
+
+							if (0 < chunks.length) {
+								let body;
+								try {
+									body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+								}
+								catch (error) {
+
+									reject(error);
+									return;
+								}
+
+								resolve(body);
+							}
+							else {
+								resolve();
+							}
+						});
 					});
+				}
+				catch (error) {
 
-					request.on("end", () => {
+					log.warn(error);
+					response.fault("invalid-request");
+					return;
+				}
 
-						if (0 < chunks.length) {
-							request.body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-						}
-
-						resolve();
-					});
-				});
-
+				request.body = body;
 				break;
 			}
 		}
