@@ -153,7 +153,7 @@ class ServiceClientBase {
 
 		for (const key in methods) {
 
-			result.prototype[key] = async function (request) {
+			result.prototype[key] = function (request) {
 				return this.post(
 					methods[key],
 					request
