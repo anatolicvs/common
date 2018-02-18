@@ -128,7 +128,7 @@ class DataAccess {
 			if (caught === undefined) {
 
 				this.log.debug(
-					"create %s %d %s",
+					"create-versioned %s %d %s",
 					prefixedTableName,
 					consumed,
 					elapsed
@@ -137,7 +137,105 @@ class DataAccess {
 			else {
 
 				this.log.debug(
-					"create %s %j %s",
+					"create-versioned %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async createCachedVersioned(ttl, tableName, hashName, rangeName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(versionName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: { ...item, [versionName]: 0 },
+				ConditionExpression: `attribute_not_exists(#hash)`,
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			item[versionName] = 0;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					let key;
+					if (rangeName === undefined) {
+						key = `${prefixedTableName}!${item[hashName]}`;
+					}
+					else {
+						key = `${prefixedTableName}!${item[hashName]}!${item[rangeName]}`;
+					}
+
+					const json = JSON.stringify(
+						item
+					);
+
+					const multi = this.redis.multi();
+
+					multi.zadd(
+						key,
+						0,
+						json
+					);
+
+					multi.expire(
+						key,
+						ttl
+					);
+
+					await multi.execAsync();
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					)
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.debug(
+					"create-cached-versioned %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"create-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
