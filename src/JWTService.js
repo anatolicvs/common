@@ -134,20 +134,21 @@ function rsasha256verify(publicKey, string, signature) {
 
 class JWTService {
 
-	createHeader() {
+	createHeader(algorithm, secretId, privateKeyId) {
 
-		switch (this.defaultAlgorithm) {
+		switch (algorithm) {
 
 			case "HS256":
 				return {
 					alg: "HS256",
-					kid: this.defaultSecret
+					kid: secretId
 				};
 
 			case "RS256":
+
 				return {
 					alg: "RS256",
-					kid: this.defaultPrivateKey
+					kid: privateKeyId
 				};
 
 			default:
@@ -155,9 +156,13 @@ class JWTService {
 		}
 	}
 
-	encode(payload) {
+	encode({ algorithm, secretId, secret, privateKeyId, privateKey, payload }) {
 
-		const header = this.createHeader();
+		const header = this.createHeader(
+			algorithm,
+			secretId,
+			privateKeyId
+		);
 
 		const headerString = objectTob64u(
 			header
@@ -172,9 +177,6 @@ class JWTService {
 
 			case "HS256": {
 
-				const kid = header.kid;
-				const secret = this.secrets[kid];
-
 				signature = hmacsha256(
 					secret,
 					`${headerString}.${payloadString}`
@@ -184,9 +186,6 @@ class JWTService {
 			}
 
 			case "RS256": {
-
-				const kid = header.kid;
-				const privateKey = this.privateKeys[kid];
 
 				signature = rsasha256sign(
 					privateKey,
@@ -216,7 +215,7 @@ class JWTService {
 		};
 	}
 
-	decode(token) {
+	decode({ token, secrets, publicKeys }) {
 
 		if (typeof token === "string") {
 			// ok
@@ -300,7 +299,7 @@ class JWTService {
 			case "HS256": {
 
 				const kid = header.kid;
-				const secret = this.secrets[kid];
+				const secret = secrets[kid];
 
 				const calculatedSignature = hmacsha256(
 					secret,
@@ -314,7 +313,7 @@ class JWTService {
 			case "RS256": {
 
 				const kid = header.kid;
-				const publicKey = this.publicKeys[kid];
+				const publicKey = publicKeys[kid];
 
 				verified = rsasha256verify(
 					publicKey,
@@ -337,13 +336,6 @@ class JWTService {
 		}
 	}
 }
-
-JWTService.prototype.defaultAlgorithm = null;
-JWTService.prototype.defaultPrivateKey = null;
-JWTService.prototype.defaultSecret = null;
-JWTService.prototype.secrets = null;
-JWTService.prototype.privateKeys = null;
-JWTService.prototype.publicKeys = null;
 
 module.exports = {
 	JWTService

@@ -86,6 +86,7 @@ const privateKey = [
 	"-----END PRIVATE KEY-----"
 ].join("\n");
 
+const secret = "shhhh....";
 const payloads = [
 
 	null,
@@ -106,12 +107,13 @@ const payloads = [
 const scenarios = [
 	{
 		description: "rs256",
-		config: {
-			defaultAlgorithm: "RS256",
-			defaultPrivateKey: "key-1",
-			privateKeys: {
-				"key-1": privateKey
-			},
+		encode: {
+			algorithm: "RS256",
+			privateKeyId: "key-1",
+			privateKey
+		},
+		decode: {
+			algorithm: "RS256",
 			publicKeys: {
 				"key-1": publicKey
 			}
@@ -119,12 +121,16 @@ const scenarios = [
 	},
 	{
 		description: "hs256",
-		config: {
-			defaultAlgorithm: "HS256",
-			defaultSecret: "secret-1",
+		encode: {
+			algorithm: "HS256",
+			secretId: "secret-1",
+			secret
+		},
+		decode: {
+			algorithm: "HS256",
 			secrets: {
-				"secret-1": "shhh..."
-			},
+				"secret-1": secret
+			}
 		}
 	}
 ];
@@ -132,11 +138,11 @@ const scenarios = [
 
 describe("JWTService", () => {
 
+	const service = new JWTService();
+
 	for (const scenario of scenarios) {
 
 		describe(scenario.description, () => {
-
-			const service = new JWTService();
 
 			for (const key in scenario.config) {
 
@@ -147,12 +153,18 @@ describe("JWTService", () => {
 
 				it(tools.format("should handle %j", payload), () => {
 
+					delete scenario.encode.payload;
+					scenario.encode.payload = payload;
+
 					const encodeResponse = service.encode(
-						payload
+						scenario.encode
 					);
 
+					delete scenario.decode.token;
+					scenario.decode.token = encodeResponse.token;
+
 					const decodeResponse = service.decode(
-						encodeResponse.token
+						scenario.decode
 					);
 
 					if (!decodeResponse.verified) {
