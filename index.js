@@ -24,5 +24,6 @@ module.exports = {
 	...require("./src/ServiceClientBase"),
 	...require("./src/RepositoryGenerator2"),
 	...require("./src/DataAccess"),
-	...require("./src/validate")
+	...require("./src/validate"),
+	...require("./src/JWTService")
 };
