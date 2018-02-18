@@ -72,7 +72,6 @@ class ServiceClientBase {
 
 				response.on("data", chunk => {
 
-					this.log.trace("read %d byte(s).", chunk.length);
 					chunks.push(
 						chunk
 					);
@@ -92,8 +91,6 @@ class ServiceClientBase {
 
 					if (0 < chunks.length) {
 
-						this.log.trace("parsing %d chunk(s)...", chunks.length);
-
 						try {
 							responseContent = JSON.parse(
 								Buffer.concat(chunks).toString("utf8")
@@ -101,13 +98,11 @@ class ServiceClientBase {
 						}
 						catch (error) {
 
+							this.log.warn(error);
 							return reject(
 								error
 							);
 						}
-					}
-					else {
-						this.log.trace("no chunks.");
 					}
 
 					const statusCode = response.statusCode;
@@ -159,7 +154,7 @@ class ServiceClientBase {
 		for (const key in methods) {
 
 			result.prototype[key] = async function (request) {
-				await this.post(
+				return this.post(
 					methods[key],
 					request
 				);
