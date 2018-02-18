@@ -176,6 +176,9 @@ function createHttpServer({ api, log }) {
 					if (fault === undefined) {
 						code = "internal-error";
 					}
+					else if (fault === null) {
+						code = error.message;
+					}
 					else {
 						code = fault;
 					}

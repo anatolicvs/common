@@ -110,18 +110,21 @@ class ServiceClientBase {
 					switch (statusCode) {
 
 						case 200:
-							resolve(
-								responseContent
-							);
-							break;
-
-						case 400:
-						case 500:
-							reject(
-								new Error(
-									responseContent.code
-								)
-							);
+							if (responseContent === undefined) {
+								reject(
+									new Error("service-client::empty-response")
+								);
+							}
+							else if (responseContent.code === "ok") {
+								resolve(
+									responseContent.data
+								);
+							}
+							else {
+								reject(
+									new Error(responseContent.code)
+								);
+							}
 							break;
 
 						default:
