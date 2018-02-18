@@ -66,10 +66,13 @@ class ServiceClientBase {
 
 			const request = lib.request(options, response => {
 
+				this.log.trace("%j %j", response.statusCode, response.rawHeaders);
+
 				const chunks = [];
 
 				response.on("data", chunk => {
 
+					this.log.trace("read %d byte(s).", chunk.length);
 					chunks.push(
 						chunk
 					);
@@ -77,6 +80,7 @@ class ServiceClientBase {
 
 				response.on("error", error => {
 
+					this.log.warn(error);
 					reject(
 						error
 					);
@@ -87,6 +91,9 @@ class ServiceClientBase {
 					let responseContent;
 
 					if (0 < chunks.length) {
+
+						this.log.trace("parsing %d chunk(s)...", chunks.length);
+
 						try {
 							responseContent = JSON.parse(
 								Buffer.concat(chunks).toString("utf8")
@@ -98,6 +105,9 @@ class ServiceClientBase {
 								error
 							);
 						}
+					}
+					else {
+						this.log.trace("no chunks.");
 					}
 
 					const statusCode = response.statusCode;
@@ -160,6 +170,7 @@ class ServiceClientBase {
 	}
 }
 
+ServiceClientBase.prototype.log = null;
 ServiceClientBase.prototype.baseUrl = null;
 
 module.exports = {
