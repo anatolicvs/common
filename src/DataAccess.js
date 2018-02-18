@@ -1045,6 +1045,7 @@ class DataAccess {
 
 		let length = 0;
 		let consumed = 0;
+		let caught;
 
 		const time = process.hrtime();
 
@@ -1061,18 +1062,35 @@ class DataAccess {
 
 			return items;
 		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.debug(
-				"scan %s %d %d %s",
-				prefixedTableName,
-				length,
-				consumed,
-				elapsed
-			);
+			if (caught === undefined) {
+
+				this.log.debug(
+					"scan %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.debug(
+					"scan %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
 		}
 	}
 
