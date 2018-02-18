@@ -101,14 +101,12 @@ describe("RepositoryGenerator", () => {
 
 	before(async () => {
 
-		console.log("opening redis server...");
 		redisServer = new RedisServer({
 			port: 15555
 		});
 
 		await redisServer.open();
 
-		console.log("opening redis client...");
 		redisClient = redis.createClient({
 			port: 15555
 		});
@@ -121,13 +119,11 @@ describe("RepositoryGenerator", () => {
 
 	after(async () => {
 
-		console.log("closing redis client...");
 		await new Promise((resolve, reject) => {
 			redisClient.once("end", resolve);
 			redisClient.quit();
 		});
 
-		console.log("closing redis server...");
 		await redisServer.close();
 	});
 
@@ -752,7 +748,7 @@ describe("RepositoryGenerator", () => {
 		}).value;
 
 		const testRepository = new TestRepository();
-		testRepository.log = ConsoleLog.instance;
+		testRepository.log = NoLog.instance;
 		testRepository.ddb = mockDynamoDB.ddb;
 
 		let throws;

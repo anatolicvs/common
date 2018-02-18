@@ -192,6 +192,10 @@ class DataAccess {
 
 					const multi = this.redis.multi();
 
+					multi.del(
+						key
+					);
+
 					multi.zadd(
 						key,
 						0,
