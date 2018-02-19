@@ -152,19 +152,19 @@ class ServiceClientBase {
 
 	static create(methods) {
 
-		const result = class extends ServiceClientBase { }
+		class ServiceClient extends ServiceClientBase { }
 
 		for (const key in methods) {
 
-			result.prototype[key] = function (request) {
+			ServiceClient.prototype[key] = function (request) {
 				return this.post(
 					methods[key],
 					request
 				);
 			}
-
-			return result;
 		}
+
+		return ServiceClient;
 	}
 }
 
