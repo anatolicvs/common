@@ -46,11 +46,7 @@ class ServiceClientBase {
 				hostname: urlInfo.hostname,
 				port: urlInfo.port,
 				method: "POST",
-				path: urlInfo.path,
-				headers: {
-					"Content-Type": "application/json; charset=utf-8",
-					"Content-Length": `${payload.length}`
-				}
+				path: urlInfo.path
 			};
 
 			if (payload === undefined) {
@@ -121,8 +117,11 @@ class ServiceClientBase {
 								);
 							}
 							else {
+
+								const error = new Error(responseContent.code);
+								error.data = responseContent.data;
 								reject(
-									new Error(responseContent.code)
+									error
 								);
 							}
 							break;
