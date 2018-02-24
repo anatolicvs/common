@@ -298,28 +298,38 @@ class JWTService {
 
 			case "HS256": {
 
-				const kid = header.kid;
-				const secret = secrets[kid];
+				if (secrets === undefined) {
+					// ok
+				}
+				else {
+					const kid = header.kid;
+					const secret = secrets[kid];
 
-				const calculatedSignature = hmacsha256(
-					secret,
-					`${headerString}.${payloadString}`
-				);
+					const calculatedSignature = hmacsha256(
+						secret,
+						`${headerString}.${payloadString}`
+					);
 
-				verified = Buffer.compare(signature, calculatedSignature) === 0;
+					verified = Buffer.compare(signature, calculatedSignature) === 0;
+				}
 				break;
 			}
 
 			case "RS256": {
 
-				const kid = header.kid;
-				const publicKey = publicKeys[kid];
+				if (publicKeys === undefined) {
+					// ok
+				}
+				else {
+					const kid = header.kid;
+					const publicKey = publicKeys[kid];
 
-				verified = rsasha256verify(
-					publicKey,
-					`${headerString}.${payloadString}`,
-					signature
-				);
+					verified = rsasha256verify(
+						publicKey,
+						`${headerString}.${payloadString}`,
+						signature
+					);
+				}
 				break;
 			}
 
