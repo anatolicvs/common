@@ -21,9 +21,8 @@ const patterns = {
 
 	uuid: UUID,
 	uuid_uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-	code: /^(?=.{1,1024}$)([0-9a-z]+(-[0-9a-z]+)*)$/,
+	code: /^(?=.{1,1024}$)([0-9a-zçğıöşü]+(-[0-9a-zçğıöşü]+)*)$/,
 	adminUsername: /^[a-zA-Z]{3,32}$/,
-
 	managerUsername: /^[a-zA-Z]{3,32}@[a-zA-Z]{3,32}$/,
 
 	// https://www.thepolyglotdeveloper.com/2015/05/use-regex-to-test-password-strength-in-javascript/
