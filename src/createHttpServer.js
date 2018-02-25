@@ -91,7 +91,7 @@ function createHttpServer({ api, log }) {
 									switch (request.headers["content-type"]) {
 
 										case "application/x-www-form-urlencoded": {
-											const pairs = str.split('&');
+											const pairs = Buffer.concat(chunks).toString("utf8").split('&');
 
 											body = {};
 
