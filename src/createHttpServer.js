@@ -88,7 +88,40 @@ function createHttpServer({ api, log }) {
 							if (0 < chunks.length) {
 								let body;
 								try {
-									body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+									switch (request.headers["content-type"]) {
+
+										case "application/x-www-form-urlencoded": {
+											const pairs = str.split('&');
+
+											body = {};
+
+											for (let pair of pairs) {
+
+												pair = pair.replace(/\+/g, "%20");
+
+												const index = pair.indexOf("=");
+												let key;
+												let value;
+
+												if (index < 0) {
+													key = decodeURIComponent(pair);
+													value = "";
+												}
+												else {
+													key = decodeURIComponent(pair.substr(0, index));
+													value = decodeURIComponent(pair.substr(index + 1));
+												}
+
+												body[key] = value;
+											}
+
+											break;
+										}
+
+										default:
+											body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+											break;
+									}
 								}
 								catch (error) {
 
