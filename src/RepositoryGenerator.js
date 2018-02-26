@@ -124,6 +124,15 @@ class RepositoryGenerator {
 					break;
 				}
 
+				case "scan-first": {
+
+					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const table = request.tables[tableName];
+
+					this.scanFirst(lines, tableName, table, methodName, method);
+					break;
+				}
+
 				case "scan": {
 
 					const tableName = tools.validateGetTrimmed(method.table, "method.table");
@@ -172,6 +181,17 @@ class RepositoryGenerator {
 					const index = table.indices[indexName];
 
 					this.generateQueryIndex(lines, tableName, table, indexName, index, methodName, method);
+					break;
+				}
+
+				case "query-index-first": {
+
+					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const indexName = tools.validateGetTrimmed(method.index, "method.index");
+					const table = request.tables[tableName];
+					const index = table.indices[indexName];
+
+					this.generateQueryIndexFirst(lines, tableName, table, indexName, index, methodName, method);
 					break;
 				}
 
@@ -713,6 +733,26 @@ class RepositoryGenerator {
 		lines.push("}");
 	}
 
+	scanFirst(lines, tableName, table, methodName, method) {
+
+		this.log.trace("generating scan-first...");
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		lines.push(`async ${methodName}() {`);
+		lines.push("	const time = process.hrtime();");
+		lines.push("	const response = await this.ddb.scan({");
+		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push(`		Limit: 1,`);
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("	}).promise();");
+		lines.push("	const diff = process.hrtime(time);");
+		lines.push("	const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`	this.log.debug("'${methodName}' scan-first ${prefixedTableName} %d %d %s", response.Items.length, response.ConsumedCapacity.CapacityUnits, elapsed);`);
+		lines.push("	return response.Items;");
+		lines.push("}");
+	}
+
 	generateScan(lines, tableName, table, methodName, method) {
 
 		this.log.trace("generating scan...");
@@ -989,6 +1029,45 @@ class RepositoryGenerator {
 		lines.push("		const diff = process.hrtime(time);");
 		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
 		lines.push(`		this.log.debug("'${methodName}' query-index ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
+		lines.push("	}");
+		lines.push("}");
+	}
+
+	generateQueryIndexFirst(lines, tableName, table, indexName, index, methodName, method) {
+
+		this.log.trace("generating query-index-first...");
+
+		const hash = tools.validateGetTrimmed(index.hash, "index.hash");
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		lines.push(`async ${methodName} (hash) {`);
+		lines.push("	let length;");
+		lines.push("	let consumed = 0;");
+		lines.push("	const time = process.hrtime();");
+		lines.push("	try {");
+		lines.push("	const response = await this.ddb.query({");
+		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push(`		IndexName: "${indexName}",`);
+		lines.push(`		Limit: 1,`);
+		lines.push(`		KeyConditionExpression: "${hash} = :hash",`);
+		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
+
+		if (method.desc === true) {
+			lines.push("		ScanIndexForward: false,");
+		}
+
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("	}).promise();");
+		lines.push("	const items = response.Items;");
+		lines.push("	length = items.length;");
+		lines.push("	consumed = response.ConsumedCapacity.CapacityUnits;");
+		lines.push("	return items;");
+		lines.push("	}");
+		lines.push("	finally {");
+		lines.push("		const diff = process.hrtime(time);");
+		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push(`		this.log.debug("'${methodName}' query-index-first ${prefixedTableName} ${indexName} %d %d %s", length, consumed, elapsed);`);
 		lines.push("	}");
 		lines.push("}");
 	}
