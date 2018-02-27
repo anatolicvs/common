@@ -95,6 +95,15 @@ class RepositoryGenerator {
 					break;
 				}
 
+				case "remove": {
+
+					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const table = request.tables[tableName];
+
+					this.generateRemove(lines, tableName, table, methodName, method);
+					break;
+				}
+
 				case "get": {
 
 					const tableName = tools.validateGetTrimmed(method.table, "method.table");
@@ -306,9 +315,9 @@ class RepositoryGenerator {
 		lines.push("	try {");
 		lines.push("");
 		lines.push("		const response = await this.ddb.put({");
-		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push(`			TableName: "${prefixedTableName}",`);
 		lines.push("			Item: item,");
-		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})",`);
 		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
 		lines.push("");
@@ -357,9 +366,9 @@ class RepositoryGenerator {
 		lines.push("		try {");
 		lines.push("");
 		lines.push("				putResponse = await this.ddb.put({");
-		lines.push(`					TableName: "${prefixedTableName}", `);
+		lines.push(`					TableName: "${prefixedTableName}",`);
 		lines.push("					Item: item,");
-		lines.push(`					ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push(`					ConditionExpression: "attribute_not_exists(${hash})",`);
 		lines.push("					ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("				}).promise();");
 		lines.push("				consumed = putResponse.ConsumedCapacity.CapacityUnits;");
@@ -412,9 +421,9 @@ class RepositoryGenerator {
 		lines.push(`async ${methodName} (item) {`);
 		lines.push("");
 		lines.push("	const response = await this.ddb.put({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
 		lines.push("		Item: item,");
-		lines.push(`		ConditionExpression: "attribute_exists(${hash})", `);
+		lines.push(`		ConditionExpression: "attribute_exists(${hash})",`);
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
 		lines.push("}");
@@ -504,7 +513,7 @@ class RepositoryGenerator {
 
 		lines.push(`async ${methodName} (item) {`);
 		lines.push("	const response = await this.ddb.put({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
 		lines.push("		Item: item,");
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
@@ -532,7 +541,7 @@ class RepositoryGenerator {
 		}
 
 		lines.push("	const response = await this.ddb.delete({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
 
 		if (range === undefined) {
 			lines.push(`		Key: { ${hash}: hash },`);
@@ -541,6 +550,42 @@ class RepositoryGenerator {
 			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
 		}
 
+		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
+		lines.push("	}).promise();");
+		lines.push("}");
+	}
+
+	generateRemove(lines, tableName, table, methodName, method) {
+
+		this.log.trace("generating remove %j...", tableName);
+
+		let hash = tools.asTrimmed(table.hash);
+		if (hash === undefined) {
+			hash = "id";
+		}
+
+		let range = tools.asTrimmed(table.range);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		if (range === undefined) {
+			lines.push(`async ${methodName} (hash) {`);
+		}
+		else {
+			lines.push(`async ${methodName} (hash, range) {`);
+		}
+
+		lines.push("	const response = await this.ddb.delete({");
+		lines.push(`		TableName: "${prefixedTableName}",`);
+
+		if (range === undefined) {
+			lines.push(`		Key: { ${hash}: hash },`);
+		}
+		else {
+			lines.push(`		Key: { ${hash}: hash, ${range}: range },`);
+		}
+
+		lines.push(`		ConditionExpression: "attribute_exists(${hash})",`);
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
 		lines.push("}");
@@ -814,7 +859,7 @@ class RepositoryGenerator {
 		lines.push("		}");
 		lines.push("	}");
 		lines.push("	const response = await this.ddb.scan({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
 		lines.push("	const items = response.Items;");
@@ -882,8 +927,8 @@ class RepositoryGenerator {
 		lines.push("	const time = process.hrtime();");
 		lines.push("	try {");
 		lines.push("	const response = await this.ddb.query({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
-		lines.push(`		KeyConditionExpression: "${hash} = :hash", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push(`		KeyConditionExpression: "${hash} = :hash",`);
 		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
@@ -943,8 +988,8 @@ class RepositoryGenerator {
 		lines.push("		}");
 		lines.push("	}");
 		lines.push("	const response = await this.ddb.query({");
-		lines.push(`		TableName: "${prefixedTableName}", `);
-		lines.push(`		KeyConditionExpression: "${hash} = :hash", `);
+		lines.push(`		TableName: "${prefixedTableName}",`);
+		lines.push(`		KeyConditionExpression: "${hash} = :hash",`);
 		lines.push("		ExpressionAttributeValues: { \":hash\": hash },");
 		lines.push("		ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("	}).promise();");
@@ -1196,7 +1241,7 @@ class RepositoryGenerator {
 		lines.push("	const time = process.hrtime();");
 		lines.push("	try {");
 		lines.push("		const getResponse = await this.ddb.get({");
-		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push(`			TableName: "${prefixedTableName}",`);
 
 		if (range === undefined) {
 			lines.push(`		Key: { ${hash}: item.${hash} },`);
@@ -1213,9 +1258,9 @@ class RepositoryGenerator {
 		lines.push("			return existingItem;");
 		lines.push("		}");
 		lines.push("		const putResponse = await this.ddb.put({");
-		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push(`			TableName: "${prefixedTableName}",`);
 		lines.push("			Item: item,");
-		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})", `);
+		lines.push(`			ConditionExpression: "attribute_not_exists(${hash})",`);
 		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
 		lines.push("		}).promise();");
 		lines.push("		consumed += putResponse.ConsumedCapacity.CapacityUnits;");
@@ -1264,7 +1309,7 @@ class RepositoryGenerator {
 		lines.push("	do {");
 
 		lines.push("		const response = await this.ddb.scan({");
-		lines.push(`			TableName: "${prefixedTableName}", `);
+		lines.push(`			TableName: "${prefixedTableName}",`);
 		lines.push("			ExclusiveStartKey,");
 		lines.push("			Limit: limit,");
 		lines.push("			ReturnConsumedCapacity: \"TOTAL\"");
