@@ -30,14 +30,14 @@ function assertOptionalNonEmptyString(value) {
 
 class DataAccess {
 
-	async create(tableName, hash, item) {
+	async create(tableName, hashName, item) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
+		assertNonEmptyString(hashName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
-		let consumed;
+		let consumed = 0;
 		let caught;
 
 		const time = process.hrtime();
@@ -68,7 +68,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"create %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -77,8 +77,8 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
-					"create %s %j %s",
+				this.log.warn(
+					"create %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -127,7 +127,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"create-versioned %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -136,7 +136,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"create-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -229,7 +229,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"create-cached-versioned %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -238,7 +238,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"create-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -345,7 +345,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"update %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -354,8 +354,8 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
-					"update-versioned %s %j %s",
+				this.log.warn(
+					"update-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -458,7 +458,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"update-cached-versioned %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -467,7 +467,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"update-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
