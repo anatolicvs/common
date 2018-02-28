@@ -47,7 +47,7 @@ class DataAccess {
 			const response = await this.ddb.put({
 				TableName: prefixedTableName,
 				Item: item,
-				ConditionExpression: `attribute_not_exists(#hash)`,
+				ConditionExpression: "attribute_not_exists(#hash)",
 				ExpressionAttributeNames: {
 					"#hash": hashName
 				},
@@ -641,7 +641,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"delete %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -650,8 +650,66 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
-					"put %s %j %s",
+				this.log.warn(
+					"delete %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async remove(tableName, hashName, hash, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ConditionExpression: "attribute_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
