@@ -325,6 +325,7 @@ class RepositoryGenerator {
 		lines.push("	}");
 		lines.push("	catch(error) {");
 		lines.push("");
+		lines.push("		console.log(error);");
 		lines.push("		caught = error;");
 		lines.push("		throw error;");
 		lines.push("	}");
