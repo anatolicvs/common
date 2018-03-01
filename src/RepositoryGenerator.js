@@ -325,7 +325,6 @@ class RepositoryGenerator {
 		lines.push("	}");
 		lines.push("	catch(error) {");
 		lines.push("");
-		lines.push("		console.log(error);");
 		lines.push("		caught = error;");
 		lines.push("		throw error;");
 		lines.push("	}");
@@ -333,6 +332,7 @@ class RepositoryGenerator {
 		lines.push("");
 		lines.push("		const diff = process.hrtime(time);");
 		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
+		lines.push("		console.log(elapsed, consumed, caught);");
 		lines.push("		if (caught === undefined) {");
 		lines.push(`			this.log.debug("'${methodName}' create ${prefixedTableName} %d %s", consumed, elapsed);`);
 		lines.push("		}");
