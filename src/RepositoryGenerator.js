@@ -332,7 +332,6 @@ class RepositoryGenerator {
 		lines.push("");
 		lines.push("		const diff = process.hrtime(time);");
 		lines.push("		const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);");
-		lines.push("		console.log(elapsed, consumed, caught,undefined, undefined in global, caught === undefined, caught === void 0);");
 		lines.push("		if (caught === undefined) {");
 		lines.push(`			this.log.debug("'${methodName}' create ${prefixedTableName} %d %s", consumed, elapsed);`);
 		lines.push("		}");
