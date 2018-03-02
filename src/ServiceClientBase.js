@@ -44,19 +44,24 @@ class ServiceClientBase {
 			}
 
 			const options = {
-				protocol: urlInfo.protocol,
 				method: "POST",
 				path: urlInfo.path
 			};
 
 			switch (urlInfo.protocol) {
 				case "ipc:":
+					options.protocol = "http:";
+					options.socketPath = `/tmp/${urlInfo.hostname}.sock`;
+					break;
+
 				case "ipcs:":
+					options.protocol = "https:";
 					options.socketPath = `/tmp/${urlInfo.hostname}.sock`;
 					break;
 
 				case "http:":
 				case "https:":
+					options.protocol = urlInfo.protocol;
 					options.hostname = urlInfo.hostname;
 					options.port = urlInfo.port;
 					break;
