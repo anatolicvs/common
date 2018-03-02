@@ -17,10 +17,12 @@ class ServiceClientBase {
 			let lib;
 			switch (urlInfo.protocol) {
 				case "http:":
+				case "ipc:":
 					lib = http;
 					break;
 
 				case "https:":
+				case "ipcs:":
 					lib = https;
 					break;
 
@@ -43,11 +45,25 @@ class ServiceClientBase {
 
 			const options = {
 				protocol: urlInfo.protocol,
-				hostname: urlInfo.hostname,
-				port: urlInfo.port,
 				method: "POST",
 				path: urlInfo.path
 			};
+
+			switch (urlInfo.protocol) {
+				case "ipc:":
+				case "ipcs:":
+					options.socketPath = `/tmp/${urlInfo.hostname}.sock`;
+					break;
+
+				case "http:":
+				case "https:":
+					options.hostname = urlInfo.hostname;
+					options.port = urlInfo.port;
+					break;
+
+				default:
+					throw new Error();
+			}
 
 			if (payload === undefined) {
 				// ok
