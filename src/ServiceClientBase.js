@@ -160,7 +160,7 @@ class ServiceClientBase {
 			});
 
 			if (payload === undefined) {
-				// ok
+				request.end();
 			}
 			else {
 				request.end(
