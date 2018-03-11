@@ -1,20 +1,11 @@
 "use strict";
 const tools = require("./src/tools.js");
 
-const {
-	SimpleLogService,
-	StdoutAppender,
-	RedisAppender,
-	DynamoDbAppender,
-	Log,
-	NoLog,
-	ConsoleLog
-} = require("./src/logging.js");
-
 module.exports = {
 	tools,
 
 	...require("./src/logging.js"),
+	tracking: require("./src/tracking.js"),
 	...require("./src/RepositoryGenerator"),
 
 	...require("./src/DiscoveryService"),
