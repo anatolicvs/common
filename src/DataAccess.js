@@ -496,10 +496,6 @@ class DataAccess {
 			key = `${prefixedTableName}!${hash}!${range}`;
 		}
 
-		const json = JSON.stringify(
-			item
-		);
-
 		let consumed = 0;
 		let caught;
 

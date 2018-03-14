@@ -99,7 +99,7 @@ class RedisTrackAppender {
 			});
 
 			redis.publish(channel, json, (error, reply) => {
-
+				// ok
 			});
 		}
 	}
