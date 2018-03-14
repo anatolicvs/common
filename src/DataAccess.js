@@ -279,7 +279,10 @@ class DataAccess {
 			}
 			catch (error) {
 
-				if (error.code !== "ConditionalCheckFailedException") {
+				if (error.code === "ConditionalCheckFailedException") {
+					// ok
+				}
+				else {
 					throw error;
 				}
 			}
@@ -297,8 +300,8 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			this.log.debug(
 				"create-or-get %s %d %d %s",
@@ -469,6 +472,185 @@ class DataAccess {
 
 				this.log.warn(
 					"update-cached-versioned %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async deleteCached(tableName, hashName, hash, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		const json = JSON.stringify(
+			item
+		);
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					await this.redis.delAsync(
+						key
+					);
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"delete-cached %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"delete-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async removeCachedVersioned(tableName, hashName, rangeName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const hash = item[hashName];
+
+		let range;
+		if (rangeName === undefined) {
+			// ok
+		}
+		else {
+			range = item[rangeName];
+		}
+
+		const version = item[versionName];
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					await this.redis.delAsync(
+						key
+					);
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove-cached-versioned %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -811,7 +993,10 @@ class DataAccess {
 						key
 					);
 
-					if (json !== null) {
+					if (json === null) {
+						// ok
+					}
+					else {
 
 						item = JSON.parse(
 							json
@@ -837,24 +1022,30 @@ class DataAccess {
 			item = response.Item;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
-			if (item !== undefined) {
+			if (item === undefined) {
+				return;
+			}
 
-				if (this.redis.connected) {
+			if (this.redis.connected) {
 
-					try {
+				try {
 
-						const json = JSON.stringify(
-							item
-						);
+					const json = JSON.stringify(
+						item
+					);
 
-						await this.redis.setAsync(key, json, "EX", ttl);
-					}
-					catch (error) {
+					await this.redis.setAsync(
+						key,
+						json,
+						"EX",
+						ttl
+					);
+				}
+				catch (error) {
 
-						this.log.warn(
-							error
-						);
-					}
+					this.log.warn(
+						error
+					);
 				}
 			}
 
@@ -963,43 +1154,44 @@ class DataAccess {
 			item = response.Item;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
-			if (item !== undefined) {
+			if (item === undefined) {
+				return;
+			}
 
-				if (this.redis.connected) {
+			if (this.redis.connected) {
 
-					try {
+				try {
 
-						const iv = item[versionName];
-						if (Number.isFinite(iv)) {
+					const iv = item[versionName];
+					if (Number.isFinite(iv)) {
 
-							const json = JSON.stringify(
-								item
-							);
-
-							//await this.redis.setAsync(key, json, "EX", ttl);
-
-							const multi = this.redis.multi();
-
-							multi.zadd(
-								key,
-								iv,
-								json
-							);
-
-							multi.expire(
-								key,
-								ttl
-							);
-
-							await multi.execAsync();
-						}
-					}
-					catch (error) {
-
-						this.log.warn(
-							error
+						const json = JSON.stringify(
+							item
 						);
+
+						//await this.redis.setAsync(key, json, "EX", ttl);
+
+						const multi = this.redis.multi();
+
+						multi.zadd(
+							key,
+							iv,
+							json
+						);
+
+						multi.expire(
+							key,
+							ttl
+						);
+
+						await multi.execAsync();
 					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
 				}
 			}
 
@@ -1938,7 +2130,10 @@ class DataAccess {
 						hashValue
 					);
 
-					map.set(hashValue, null);
+					map.set(
+						hashValue,
+						null
+					);
 				}
 			}
 
@@ -1976,10 +2171,17 @@ class DataAccess {
 				consumed += response.ConsumedCapacity[0].CapacityUnits;
 
 				// get items
-				const items = response.Responses[prefixedTableName];
+				const items = response.Responses[
+					prefixedTableName
+				];
+
 				if (0 < items.length) {
 
-					this.log.debug("got %d item(s).", items.length);
+					this.log.debug(
+						"got %d item(s).",
+						items.length
+					);
+
 					for (const item of items) {
 
 						const hashValue = item[hash];
@@ -1989,14 +2191,26 @@ class DataAccess {
 
 						if (value === undefined) {
 
-							this.log.error("value not found.");
+							this.log.error(
+								"value not found."
+							);
+
 							throw new Error();
 						}
-						else if (value === null) {
-							map.set(hashValue, item);
+
+						if (value === null) {
+
+							map.set(
+								hashValue,
+								item
+							);
 						}
 						else {
-							this.log.error("value already in map.");
+
+							this.log.error(
+								"value already in map."
+							);
+
 							throw new Error();
 						}
 
@@ -2006,7 +2220,9 @@ class DataAccess {
 					}
 				}
 
-				const unprocessedKeys = response.UnprocessedKeys[prefixedTableName];
+				const unprocessedKeys = response.UnprocessedKeys[
+					prefixedTableName
+				];
 
 				if (unprocessedKeys === undefined) {
 					// ok
@@ -2022,33 +2238,58 @@ class DataAccess {
 
 					for (const key of keys) {
 
-						const hashValue = key[hash];
+						const hashValue = key[
+							hash
+						];
+
 						const value = map.get(
 							hashValue
 						);
 
 						// check (optional)
-						if (value === void 0) {
-							this.log.error("value not found.");
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
 							throw new Error();
 						}
-						else if (value === null) {
+
+						if (value === null) {
+							// ok
 						}
 						else {
-							this.log.error("value already in map.");
+
+							this.log.error(
+								"value already in map."
+							);
+
 							throw new Error();
 						}
-						queue.push(hash);
+
+						queue.push(
+							hash
+						);
 					}
 				}
 			} while (0 < queue.length);
+
 			length = results.length;
 			return results;
 		}
 		finally {
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
-			lines.push(`		this.log.debug("'${methodName}' batch-get ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			this.log.debug(
+				"batch-get %s %d %d %s",
+				prefixedTableName,
+				length,
+				consumed,
+				elapsed
+			);
 		}
 	}
 }
