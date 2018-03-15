@@ -1864,7 +1864,12 @@ class DataAccess {
 
 							//multi.get(key);
 
-							multi.zrange(key, -1, -1, "WITHSCORES");
+							multi.zrange(
+								key,
+								-1,
+								-1,
+								"WITHSCORES"
+							);
 						}
 
 						const jsons = await multi.execAsync();
