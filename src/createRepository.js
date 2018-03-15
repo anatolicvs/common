@@ -364,6 +364,22 @@ function createRepository(request) {
 
 					break;
 
+				case "update-versioned":
+
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function (item) {
+
+						return this.da.updateVersioned(
+							tableName,
+							versionName,
+							item
+						);
+					}
+					break;
+
 				case "update-cached-versioned":
 
 					if (versionName === undefined) {

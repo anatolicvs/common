@@ -669,9 +669,8 @@ class DataAccess {
 			throw new Error();
 		}
 
-		const nextVersion = Math.floor(version) + 1;
-
 		const prefixedTableName = this.tableNamePrefix + tableName;
+		const nextVersion = Math.floor(version) + 1;
 
 		let consumed = 0;
 		let caught;
