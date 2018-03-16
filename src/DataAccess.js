@@ -303,7 +303,7 @@ class DataAccess {
 			const [s, ns] = process.hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.debug(
+			this.log.trace(
 				"create-or-get %s %d %d %s",
 				prefixedTableName,
 				existingItem === undefined ? 0 : 1,
@@ -708,7 +708,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"update-versioned %s(%d->%d) %d %s",
 					prefixedTableName,
 					version,
@@ -719,7 +719,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"update-versioned %s(%d->%d) %s %s",
 					prefixedTableName,
 					version,
@@ -764,7 +764,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"put %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -773,7 +773,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"put %s %j %s",
 					prefixedTableName,
 					caught.code,
@@ -936,7 +936,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -946,7 +946,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1058,7 +1058,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-cached %s %d %d %s",
 					prefixedTableName,
 					item === undefined ? 0 : 1,
@@ -1068,7 +1068,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-cached %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1204,7 +1204,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-cached-versioned %s %d %d %s",
 					prefixedTableName,
 					item === undefined ? 0 : 1,
@@ -1214,7 +1214,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1262,7 +1262,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-consistent %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1272,7 +1272,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-consistent %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1319,7 +1319,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"scan %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1329,7 +1329,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"scan %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1537,7 +1537,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"scan-cached-versioned %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1547,7 +1547,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"scan-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -2283,7 +2283,7 @@ class DataAccess {
 			const [s, ns] = process.hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.debug(
+			this.log.trace(
 				"batch-get %s %d %d %s",
 				prefixedTableName,
 				length,
