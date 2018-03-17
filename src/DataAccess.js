@@ -566,6 +566,14 @@ class DataAccess {
 
 		const hash = item[hashName];
 
+		const version = item[versionName];
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
 		let range;
 		if (rangeName === undefined) {
 			// ok
@@ -573,8 +581,6 @@ class DataAccess {
 		else {
 			range = item[rangeName];
 		}
-
-		const version = item[versionName];
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
