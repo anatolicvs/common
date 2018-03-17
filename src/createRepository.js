@@ -361,6 +361,63 @@ function createRepository(request) {
 					break;
 				}
 
+				case "query-index-cached": {
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					let indexName;
+					let desc = false;
+					switch (parts.length) {
+
+						case 2:
+							indexName = parts[1];
+							break;
+
+						case 3:
+							indexName = parts[1];
+							desc = parts[2] === "desc";
+							break;
+
+						default:
+							throw new Error();
+					}
+
+					const indexDefinition = tableDefinition.indices[
+						indexName
+					];
+
+					if (indexDefinition === undefined) {
+						throw new Error();
+					}
+
+					const {
+						hash: indexHashName,
+						range: indexRangeName
+					} = indexDefinition;
+
+					if (indexHashName === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function (indexHash) {
+
+						return this.da.queryIndexCached(
+							ttl,
+							tableName,
+							hashName,
+							rangeName,
+							indexName,
+							indexHashName,
+							indexHash,
+							desc
+						);
+					}
+
+					break;
+				}
+
 				case "query-index-cached-versioned": {
 
 					if (versionName === undefined) {
