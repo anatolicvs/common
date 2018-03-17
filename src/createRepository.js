@@ -221,6 +221,41 @@ function createRepository(request) {
 					}
 					break;
 
+				case "remove-cached-versioned":
+
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.removeCachedVersioned(
+								tableName,
+								hashName,
+								undefined,
+								versionName,
+								item
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.removeCachedVersioned(
+								tableName,
+								hashName,
+								rangeName,
+								versionName,
+								item
+							);
+						};
+					}
+
+					break;
+
 				case "scan":
 					prototype[methodName] = function () {
 
