@@ -314,6 +314,7 @@ function createRepository(request) {
 				case "query-index": {
 
 					let indexName;
+					let desc = false;
 					switch (parts.length) {
 
 						case 2:
@@ -322,6 +323,7 @@ function createRepository(request) {
 
 						case 3:
 							indexName = parts[1];
+							desc = parts[2] === "desc";
 							break;
 
 						default:
@@ -351,7 +353,8 @@ function createRepository(request) {
 							tableName,
 							indexName,
 							indexHashName,
-							indexHash
+							indexHash,
+							desc
 						);
 					}
 
