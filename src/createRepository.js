@@ -311,6 +311,53 @@ function createRepository(request) {
 
 					break;
 
+				case "query-index": {
+
+					let indexName;
+					switch (parts.length) {
+
+						case 2:
+							indexName = parts[1];
+							break;
+
+						case 3:
+							indexName = parts[1];
+							break;
+
+						default:
+							throw new Error();
+					}
+
+					const indexDefinition = tableDefinition.indices[
+						indexName
+					];
+
+					if (indexDefinition === undefined) {
+						throw new Error();
+					}
+
+					const {
+						hash: indexHashName,
+						range: indexRangeName
+					} = indexDefinition;
+
+					if (indexHashName === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function (indexHash) {
+
+						return this.da.queryIndex(
+							tableName,
+							indexName,
+							indexHashName,
+							indexHash
+						);
+					}
+
+					break;
+				}
+
 				case "query-index-cached-versioned": {
 
 					if (versionName === undefined) {
