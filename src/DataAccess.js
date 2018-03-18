@@ -2418,7 +2418,7 @@ class DataAccess {
 
 					if (jsons.indexOf(null) < 0) {
 
-						const results = jsons.map(json => JSON.parse);
+						const results = jsons.map(JSON.parse);
 						length = results.length;
 						return results;
 					}
