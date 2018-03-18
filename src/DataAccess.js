@@ -207,7 +207,15 @@ class DataAccess {
 						ttl
 					);
 
-					await multi.execAsync();
+					// no need to wait
+					multi.exec((error, reply) => {
+
+						if (error) {
+							this.log.warn(
+								error
+							);
+						}
+					});
 				}
 				catch (error) {
 
@@ -439,7 +447,15 @@ class DataAccess {
 						ttl
 					);
 
-					await multi.execAsync();
+					// no need to wait
+					multi.exec((error, reply) => {
+
+						if (error) {
+							this.log.warn(
+								error
+							);
+						}
+					});
 				}
 				catch (error) {
 
@@ -1185,7 +1201,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 				}
 				catch (error) {
@@ -1518,7 +1542,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 
@@ -1776,7 +1808,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 						this.log.warn(error)
@@ -2028,7 +2068,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 
@@ -2296,6 +2344,313 @@ class DataAccess {
 				consumed,
 				elapsed
 			);
+		}
+	}
+
+	async batchGetCached(ttl, tableName, hashName, hashes) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+
+		if (Array.isArray(hashes)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		if (0 < hashes.length) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const queue = [];
+			const map = new Map();
+
+			for (const hash of hashes) {
+
+				if (map.has(hash)) {
+
+					this.log.warn(
+						"%j is duplicate.",
+						hash
+					);
+				}
+				else {
+
+					queue.push(
+						hash
+					);
+
+					map.set(
+						hash,
+						null
+					);
+				}
+			}
+
+			if (this.redis.connected) {
+
+				try {
+
+					const multi = this.redis.multi();
+					for (const hash of queue) {
+
+						const key = `${prefixedTableName}!${hash}`;
+						multi.get(
+							key
+						);
+					}
+
+					const jsons = await multi.execAsync();
+
+					if (jsons.indexOf(null) < 0) {
+
+						const results = jsons.map(json => JSON.parse);
+						length = results.length;
+						return results;
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const results = [];
+
+			do {
+
+				// dequeue 100 ids from queue
+				const chunk = queue.splice(0, 100);
+
+				// prepare keys
+				const keys = [];
+				for (const hash of chunk) {
+
+					keys.push({
+						[hashName]: hash
+					});
+				}
+
+				this.log.debug(
+					"batch get %d id(s)...",
+					chunk.length
+				);
+
+				// batch get
+				const response = await this.ddb.batchGet({
+					RequestItems: {
+						[prefixedTableName]: {
+							Keys: keys
+						}
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				// accumulate consumed capacity units
+				consumed += response.ConsumedCapacity[0].CapacityUnits;
+
+				// get items
+				const items = response.Responses[prefixedTableName];
+				if (0 < items.length) {
+
+					this.log.debug(
+						"got %d item(s).",
+						items.length
+					);
+
+					for (const item of items) {
+
+						const hash = item[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+
+							map.set(
+								hash,
+								item
+							);
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						results.push(
+							item
+						);
+					}
+				}
+
+				const unprocessedKeys = response.UnprocessedKeys[
+					prefixedTableName
+				];
+
+				if (unprocessedKeys === undefined) {
+					// ok
+				}
+				else {
+
+					const keys = unprocessedKeys.Keys;
+
+					this.log.debug(
+						"%d id(s) are unprocessed.",
+						keys.length
+					);
+
+					for (const key of keys) {
+
+						const hash = key[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						// check (optional)
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+							// ok
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						queue.push(
+							hash
+						);
+					}
+				}
+			} while (0 < queue.length);
+
+			length = results.length;
+
+			// cache items
+			if (0 < length) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const multi = this.redis.multi();
+
+						for (const item of results) {
+
+							const hash = item[
+								hashName
+							];
+
+							const key = `${prefixedTableName}!${hash}`;
+
+							const json = JSON.stringify(
+								item
+							);
+
+							multi.set(
+								key,
+								json,
+								"EX",
+								ttl
+							);
+						}
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						);
+					}
+				}
+			}
+
+			return results;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"batch-get-cached %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"batch-get-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
 		}
 	}
 }

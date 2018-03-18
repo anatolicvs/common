@@ -265,29 +265,6 @@ function createRepository(request) {
 					}
 					break;
 
-				case "create-cached-versioned":
-
-					if (versionName === undefined) {
-						throw new Error();
-					}
-
-					if (ttl === undefined) {
-						throw new Error();
-					}
-
-					prototype[methodName] = function (item) {
-
-						return this.da.createCachedVersioned(
-							ttl,
-							tableName,
-							hashName,
-							rangeName,
-							versionName,
-							item
-						);
-					}
-					break;
-
 				case "get-cached-versioned":
 
 					if (versionName === undefined) {
@@ -306,6 +283,24 @@ function createRepository(request) {
 							hashName,
 							hash,
 							versionName
+						);
+					}
+
+					break;
+
+				case "batch-get-cached":
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function (hashes) {
+
+						return this.da.batchGetCached(
+							ttl,
+							tableName,
+							hashName,
+							hashes
 						);
 					}
 
