@@ -306,6 +306,29 @@ function createRepository(request) {
 
 					break;
 
+				case "batch-get-cached-versioned":
+
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function (hashes) {
+
+						return this.da.batchGetCachedVersioned(
+							ttl,
+							tableName,
+							hashName,
+							versionName,
+							hashes
+						);
+					}
+
+					break;
+
 				case "query-index": {
 
 					let indexName;
