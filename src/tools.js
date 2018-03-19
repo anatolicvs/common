@@ -1399,6 +1399,15 @@ function sortObject(object) {
 	return result;
 }
 
+function isBase64(value){
+	try 
+	{	
+		return btoa(atob(value)) === value;
+	} catch(err){
+		return false;
+	}
+}
+
 
 module.exports = {
 	patterns,
@@ -1474,5 +1483,7 @@ module.exports = {
 
 	sortObject,
 	assert,
-	assertEqual
+	assertEqual,
+	
+	isBase64
 };
