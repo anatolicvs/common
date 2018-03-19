@@ -67,10 +67,10 @@ class StdoutTrackAppender {
 		} = process;
 
 		if (stdout.isTTY) {
-			stdout.write(`${source} ${event}`);
+			stdout.write(`${source} ${event}\n`);
 		}
 		else {
-			stdout.write(`${source} ${event}`);
+			stdout.write(`${source} ${event}\n`);
 		}
 	}
 }
@@ -99,7 +99,7 @@ class RedisTrackAppender {
 			});
 
 			redis.publish(channel, json, (error, reply) => {
-
+				// ok
 			});
 		}
 	}

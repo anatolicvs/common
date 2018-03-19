@@ -90,6 +90,12 @@ function newid() {
 	return uuid.v4();
 }
 
+/*******************************
+	rng16hex
+*******************************/
+function rng16hex() {
+	return crypto.randomBytes(16).toString("hex");
+}
 
 /*******************************
 	isArray
@@ -1415,6 +1421,7 @@ module.exports = {
 	exportAll,
 	ts,
 	newid,
+	rng16hex,
 	isArray,
 	isFinite,
 	isInteger,

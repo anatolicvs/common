@@ -242,7 +242,7 @@ class RedisAppender {
 				app,
 				env,
 				channel
-			 } = this;
+			} = this;
 
 			const json = JSON.stringify({
 				ts,
@@ -253,10 +253,9 @@ class RedisAppender {
 				message
 			});
 
-			redis.publish(
-				channel,
-				json
-			);
+			redis.publish(channel, json, (error, reply) => {
+				// ok
+			});
 		}
 	}
 }

@@ -207,7 +207,15 @@ class DataAccess {
 						ttl
 					);
 
-					await multi.execAsync();
+					// no need to wait
+					multi.exec((error, reply) => {
+
+						if (error) {
+							this.log.warn(
+								error
+							);
+						}
+					});
 				}
 				catch (error) {
 
@@ -279,7 +287,10 @@ class DataAccess {
 			}
 			catch (error) {
 
-				if (error.code !== "ConditionalCheckFailedException") {
+				if (error.code === "ConditionalCheckFailedException") {
+					// ok
+				}
+				else {
 					throw error;
 				}
 			}
@@ -297,10 +308,10 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.debug(
+			this.log.trace(
 				"create-or-get %s %d %d %s",
 				prefixedTableName,
 				existingItem === undefined ? 0 : 1,
@@ -436,7 +447,15 @@ class DataAccess {
 						ttl
 					);
 
-					await multi.execAsync();
+					// no need to wait
+					multi.exec((error, reply) => {
+
+						if (error) {
+							this.log.warn(
+								error
+							);
+						}
+					});
 				}
 				catch (error) {
 
@@ -477,6 +496,187 @@ class DataAccess {
 		}
 	}
 
+	async deleteCached(tableName, hashName, hash, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					await this.redis.delAsync(
+						key
+					);
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"delete-cached %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"delete-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async removeCachedVersioned(tableName, hashName, rangeName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const hash = item[hashName];
+
+		const version = item[versionName];
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		let range;
+		if (rangeName === undefined) {
+			// ok
+		}
+		else {
+			range = item[rangeName];
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let key;
+		if (rangeName === undefined) {
+			key = `${prefixedTableName}!${hash}`;
+		}
+		else {
+			key = `${prefixedTableName}!${hash}!${range}`;
+		}
+
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					await this.redis.delAsync(
+						key
+					);
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove-cached-versioned %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove-cached-versioned %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async updateVersioned(tableName, versionName, item) {
 
 		assertNonEmptyString(tableName);
@@ -491,9 +691,8 @@ class DataAccess {
 			throw new Error();
 		}
 
-		const nextVersion = Math.floor(version) + 1;
-
 		const prefixedTableName = this.tableNamePrefix + tableName;
+		const nextVersion = Math.floor(version) + 1;
 
 		let consumed = 0;
 		let caught;
@@ -531,7 +730,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"update-versioned %s(%d->%d) %d %s",
 					prefixedTableName,
 					version,
@@ -542,7 +741,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"update-versioned %s(%d->%d) %s %s",
 					prefixedTableName,
 					version,
@@ -587,7 +786,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"put %s %d %s",
 					prefixedTableName,
 					consumed,
@@ -596,7 +795,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"put %s %j %s",
 					prefixedTableName,
 					caught.code,
@@ -759,7 +958,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -769,7 +968,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -811,7 +1010,10 @@ class DataAccess {
 						key
 					);
 
-					if (json !== null) {
+					if (json === null) {
+						// ok
+					}
+					else {
 
 						item = JSON.parse(
 							json
@@ -837,24 +1039,30 @@ class DataAccess {
 			item = response.Item;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
-			if (item !== undefined) {
+			if (item === undefined) {
+				return;
+			}
 
-				if (this.redis.connected) {
+			if (this.redis.connected) {
 
-					try {
+				try {
 
-						const json = JSON.stringify(
-							item
-						);
+					const json = JSON.stringify(
+						item
+					);
 
-						await this.redis.setAsync(key, json, "EX", ttl);
-					}
-					catch (error) {
+					await this.redis.setAsync(
+						key,
+						json,
+						"EX",
+						ttl
+					);
+				}
+				catch (error) {
 
-						this.log.warn(
-							error
-						);
-					}
+					this.log.warn(
+						error
+					);
 				}
 			}
 
@@ -872,7 +1080,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-cached %s %d %d %s",
 					prefixedTableName,
 					item === undefined ? 0 : 1,
@@ -882,7 +1090,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-cached %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -963,43 +1171,52 @@ class DataAccess {
 			item = response.Item;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
-			if (item !== undefined) {
+			if (item === undefined) {
+				return;
+			}
 
-				if (this.redis.connected) {
+			if (this.redis.connected) {
 
-					try {
+				try {
 
-						const iv = item[versionName];
-						if (Number.isFinite(iv)) {
+					const iv = item[versionName];
+					if (Number.isFinite(iv)) {
 
-							const json = JSON.stringify(
-								item
-							);
-
-							//await this.redis.setAsync(key, json, "EX", ttl);
-
-							const multi = this.redis.multi();
-
-							multi.zadd(
-								key,
-								iv,
-								json
-							);
-
-							multi.expire(
-								key,
-								ttl
-							);
-
-							await multi.execAsync();
-						}
-					}
-					catch (error) {
-
-						this.log.warn(
-							error
+						const json = JSON.stringify(
+							item
 						);
+
+						//await this.redis.setAsync(key, json, "EX", ttl);
+
+						const multi = this.redis.multi();
+
+						multi.zadd(
+							key,
+							iv,
+							json
+						);
+
+						multi.expire(
+							key,
+							ttl
+						);
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
 				}
 			}
 
@@ -1017,7 +1234,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-cached-versioned %s %d %d %s",
 					prefixedTableName,
 					item === undefined ? 0 : 1,
@@ -1027,7 +1244,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1075,7 +1292,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"get-consistent %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1085,7 +1302,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"get-consistent %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1132,7 +1349,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"scan %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1142,7 +1359,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"scan %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1325,7 +1542,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 
@@ -1350,7 +1575,7 @@ class DataAccess {
 
 			if (caught === undefined) {
 
-				this.log.debug(
+				this.log.trace(
 					"scan-cached-versioned %s %d %d %s",
 					prefixedTableName,
 					length,
@@ -1360,7 +1585,7 @@ class DataAccess {
 			}
 			else {
 
-				this.log.debug(
+				this.log.warn(
 					"scan-cached-versioned %s %s %s",
 					prefixedTableName,
 					caught.code,
@@ -1583,7 +1808,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 						this.log.warn(error)
@@ -1676,7 +1909,12 @@ class DataAccess {
 
 							//multi.get(key);
 
-							multi.zrange(key, -1, -1, "WITHSCORES");
+							multi.zrange(
+								key,
+								-1,
+								-1,
+								"WITHSCORES"
+							);
 						}
 
 						const jsons = await multi.execAsync();
@@ -1830,7 +2068,15 @@ class DataAccess {
 							ttl
 						);
 
-						await multi.execAsync();
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
 					}
 					catch (error) {
 
@@ -1938,7 +2184,10 @@ class DataAccess {
 						hashValue
 					);
 
-					map.set(hashValue, null);
+					map.set(
+						hashValue,
+						null
+					);
 				}
 			}
 
@@ -1976,10 +2225,17 @@ class DataAccess {
 				consumed += response.ConsumedCapacity[0].CapacityUnits;
 
 				// get items
-				const items = response.Responses[prefixedTableName];
+				const items = response.Responses[
+					prefixedTableName
+				];
+
 				if (0 < items.length) {
 
-					this.log.debug("got %d item(s).", items.length);
+					this.log.debug(
+						"got %d item(s).",
+						items.length
+					);
+
 					for (const item of items) {
 
 						const hashValue = item[hash];
@@ -1989,14 +2245,26 @@ class DataAccess {
 
 						if (value === undefined) {
 
-							this.log.error("value not found.");
+							this.log.error(
+								"value not found."
+							);
+
 							throw new Error();
 						}
-						else if (value === null) {
-							map.set(hashValue, item);
+
+						if (value === null) {
+
+							map.set(
+								hashValue,
+								item
+							);
 						}
 						else {
-							this.log.error("value already in map.");
+
+							this.log.error(
+								"value already in map."
+							);
+
 							throw new Error();
 						}
 
@@ -2006,7 +2274,9 @@ class DataAccess {
 					}
 				}
 
-				const unprocessedKeys = response.UnprocessedKeys[prefixedTableName];
+				const unprocessedKeys = response.UnprocessedKeys[
+					prefixedTableName
+				];
 
 				if (unprocessedKeys === undefined) {
 					// ok
@@ -2022,33 +2292,780 @@ class DataAccess {
 
 					for (const key of keys) {
 
-						const hashValue = key[hash];
+						const hashValue = key[
+							hash
+						];
+
 						const value = map.get(
 							hashValue
 						);
 
 						// check (optional)
-						if (value === void 0) {
-							this.log.error("value not found.");
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
 							throw new Error();
 						}
-						else if (value === null) {
+
+						if (value === null) {
+							// ok
 						}
 						else {
-							this.log.error("value already in map.");
+
+							this.log.error(
+								"value already in map."
+							);
+
 							throw new Error();
 						}
-						queue.push(hash);
+
+						queue.push(
+							hash
+						);
 					}
 				}
 			} while (0 < queue.length);
+
 			length = results.length;
 			return results;
 		}
 		finally {
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
-			lines.push(`		this.log.debug("'${methodName}' batch-get ${prefixedTableName} %d %d %s", length, consumed, elapsed);`);
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			this.log.trace(
+				"batch-get %s %d %d %s",
+				prefixedTableName,
+				length,
+				consumed,
+				elapsed
+			);
+		}
+	}
+
+	async batchGetCached(ttl, tableName, hashName, hashes) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+
+		if (Array.isArray(hashes)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		if (0 < hashes.length) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const queue = [];
+			const map = new Map();
+
+			for (const hash of hashes) {
+
+				if (map.has(hash)) {
+
+					this.log.warn(
+						"%j is duplicate.",
+						hash
+					);
+				}
+				else {
+
+					queue.push(
+						hash
+					);
+
+					map.set(
+						hash,
+						null
+					);
+				}
+			}
+
+			if (this.redis.connected) {
+
+				try {
+
+					const multi = this.redis.multi();
+					for (const hash of queue) {
+
+						const key = `${prefixedTableName}!${hash}`;
+						multi.get(
+							key
+						);
+					}
+
+					const jsons = await multi.execAsync();
+
+					if (jsons.indexOf(null) < 0) {
+
+						const results = jsons.map(JSON.parse);
+						length = results.length;
+						return results;
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const results = [];
+
+			do {
+
+				// dequeue 100 ids from queue
+				const chunk = queue.splice(0, 100);
+
+				// prepare keys
+				const keys = [];
+				for (const hash of chunk) {
+
+					keys.push({
+						[hashName]: hash
+					});
+				}
+
+				this.log.debug(
+					"batch get %d id(s)...",
+					chunk.length
+				);
+
+				// batch get
+				const response = await this.ddb.batchGet({
+					RequestItems: {
+						[prefixedTableName]: {
+							Keys: keys
+						}
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				// accumulate consumed capacity units
+				consumed += response.ConsumedCapacity[0].CapacityUnits;
+
+				// get items
+				const items = response.Responses[prefixedTableName];
+				if (0 < items.length) {
+
+					this.log.debug(
+						"got %d item(s).",
+						items.length
+					);
+
+					for (const item of items) {
+
+						const hash = item[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+
+							map.set(
+								hash,
+								item
+							);
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						results.push(
+							item
+						);
+					}
+				}
+
+				const unprocessedKeys = response.UnprocessedKeys[
+					prefixedTableName
+				];
+
+				if (unprocessedKeys === undefined) {
+					// ok
+				}
+				else {
+
+					const keys = unprocessedKeys.Keys;
+
+					this.log.debug(
+						"%d id(s) are unprocessed.",
+						keys.length
+					);
+
+					for (const key of keys) {
+
+						const hash = key[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						// check (optional)
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+							// ok
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						queue.push(
+							hash
+						);
+					}
+				}
+			} while (0 < queue.length);
+
+			length = results.length;
+
+			// cache items
+			if (0 < length) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const multi = this.redis.multi();
+
+						for (const item of results) {
+
+							const hash = item[
+								hashName
+							];
+
+							const key = `${prefixedTableName}!${hash}`;
+
+							const json = JSON.stringify(
+								item
+							);
+
+							multi.set(
+								key,
+								json,
+								"EX",
+								ttl
+							);
+						}
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						);
+					}
+				}
+			}
+
+			return results;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"batch-get-cached %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"batch-get-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async batchGetCachedVersioned(ttl, tableName, hashName, versionName, hashes) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(versionName);
+
+		if (Array.isArray(hashes)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		if (0 < hashes.length) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = process.hrtime();
+
+		try {
+
+			const queue = [];
+			const map = new Map();
+
+			for (const hash of hashes) {
+
+				if (map.has(hash)) {
+
+					this.log.warn(
+						"%j is duplicate.",
+						hash
+					);
+				}
+				else {
+
+					queue.push(
+						hash
+					);
+
+					map.set(
+						hash,
+						null
+					);
+				}
+			}
+
+			if (this.redis.connected) {
+
+				try {
+
+					length = queue.length;
+
+					const multi = this.redis.multi();
+
+					for (const hash of queue) {
+
+						const key = `${prefixedTableName}!${hash}`;
+
+						multi.zrange(
+							key,
+							-1,
+							-1,
+							"WITHSCORES"
+						);
+					}
+
+					const arrays = await multi.execAsync();
+
+					let miss;
+					const results = [];
+
+					for (let i = 0; i < length; i++) {
+
+						const array = arrays[i];
+						if (Array.isArray(array)) {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						if (array.length === 2) {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						const json = array[0];
+
+						if (typeof json === "string") {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						const scoreString = array[1];
+
+						if (typeof scoreString === "string") {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						const item = JSON.parse(
+							json
+						);
+
+						const score = Number.parseFloat(
+							scoreString
+						);
+
+						if (Number.isFinite(score)) {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						const version = item[
+							versionName
+						];
+
+						if (Number.isFinite(version)) {
+							// ok
+						}
+						else {
+							miss = true;
+							break;
+						}
+
+						if (version === score) {
+							// ok
+						}
+						else {
+
+							miss = true;
+							break;
+						}
+
+						results.push(
+							item
+						);
+					}
+
+					if (miss === true) {
+						// ok
+					}
+					else {
+						return results;
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const results = [];
+
+			do {
+
+				// dequeue 100 ids from queue
+				const chunk = queue.splice(0, 100);
+
+				// prepare keys
+				const keys = [];
+				for (const hash of chunk) {
+
+					keys.push({
+						[hashName]: hash
+					});
+				}
+
+				this.log.debug(
+					"batch get %d id(s)...",
+					chunk.length
+				);
+
+				// batch get
+				const response = await this.ddb.batchGet({
+					RequestItems: {
+						[prefixedTableName]: {
+							Keys: keys
+						}
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				// accumulate consumed capacity units
+				consumed += response.ConsumedCapacity[0].CapacityUnits;
+
+				// get items
+				const items = response.Responses[prefixedTableName];
+				if (0 < items.length) {
+
+					this.log.debug(
+						"got %d item(s).",
+						items.length
+					);
+
+					for (const item of items) {
+
+						const hash = item[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+
+							map.set(
+								hash,
+								item
+							);
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						results.push(
+							item
+						);
+					}
+				}
+
+				const unprocessedKeys = response.UnprocessedKeys[
+					prefixedTableName
+				];
+
+				if (unprocessedKeys === undefined) {
+					// ok
+				}
+				else {
+
+					const keys = unprocessedKeys.Keys;
+
+					this.log.debug(
+						"%d id(s) are unprocessed.",
+						keys.length
+					);
+
+					for (const key of keys) {
+
+						const hash = key[
+							hashName
+						];
+
+						const value = map.get(
+							hash
+						);
+
+						// check (optional)
+						if (value === undefined) {
+
+							this.log.error(
+								"value not found."
+							);
+
+							throw new Error();
+						}
+
+						if (value === null) {
+							// ok
+						}
+						else {
+
+							this.log.error(
+								"value already in map."
+							);
+
+							throw new Error();
+						}
+
+						queue.push(
+							hash
+						);
+					}
+				}
+			} while (0 < queue.length);
+
+			length = results.length;
+
+			// cache items
+			if (0 < length) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const multi = this.redis.multi();
+						const ids = [];
+
+						for (const item of results) {
+
+							const hash = item[
+								hashName
+							];
+
+							const key = `${prefixedTableName}!${hash}`;
+
+							const version = item[
+								versionName
+							];
+
+							if (Number.isFinite(version)) {
+								// ok
+							}
+							else {
+								throw new Error();
+							}
+
+							const json = JSON.stringify(
+								item
+							);
+
+							multi.zadd(
+								key,
+								version,
+								json
+							);
+
+							multi.expire(
+								key,
+								ttl
+							);
+						}
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						)
+					}
+				}
+			}
+
+			return results;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"batch-get-cached-versioned %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"batch-get-cached-versioned %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
 		}
 	}
 }
