@@ -781,8 +781,8 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 
@@ -796,7 +796,7 @@ class DataAccess {
 			else {
 
 				this.log.warn(
-					"put %s %j %s",
+					"put %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -835,8 +835,8 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 

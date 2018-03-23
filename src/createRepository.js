@@ -111,6 +111,18 @@ function createRepository(request) {
 
 			switch (type) {
 
+				case "put":
+
+					prototype[methodName] = function (item) {
+
+						return this.da.put(
+							tableName,
+							item
+						);
+					};
+
+					break;
+
 				case "create":
 
 					prototype[methodName] = function (item) {
