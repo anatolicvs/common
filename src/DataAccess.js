@@ -808,11 +808,11 @@ class DataAccess {
 		}
 	}
 
-	async delete(tableName, hash, range, hashValue, rangeValue) {
+	async delete(tableName, hashName, rangeName, hash, range) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
-		assertOptionalNonEmptyString(range);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -825,7 +825,7 @@ class DataAccess {
 
 			const response = await this.ddb.delete({
 				TableName: prefixedTableName,
-				Key: range === undefined ? { [hash]: hashValue } : { [hash]: hashValue, [range]: rangeValue },
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 

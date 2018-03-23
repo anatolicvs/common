@@ -507,6 +507,37 @@ function createRepository(request) {
 					break;
 				}
 
+				case "delete":
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function (hash) {
+
+							return this.da.delete(
+								tableName,
+								hashName,
+								undefined,
+								hash,
+								undefined
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (hash, range) {
+
+							return this.da.delete(
+								tableName,
+								hashName,
+								rangeName,
+								hash,
+								range
+							);
+						};
+					}
+
+					break;
+
 				case "delete-cached":
 
 					if (rangeName === undefined) {
