@@ -1054,12 +1054,15 @@ class DataAccess {
 						item
 					);
 
-					await this.redis.setAsync(
-						key,
-						json,
-						"EX",
-						ttl
-					);
+					this.redis.set(key, json, "EX", ttl, (error, reply) => {
+
+						if (error) {
+							this.log.warn(
+								error
+							);
+						}
+
+					});
 				}
 				catch (error) {
 

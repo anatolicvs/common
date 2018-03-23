@@ -277,6 +277,41 @@ function createRepository(request) {
 					}
 					break;
 
+				case "get-cached":
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function (hash) {
+
+							return this.da.getCached(
+								ttl,
+								tableName,
+								hashName,
+								hash
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (hash, range) {
+
+							return this.da.getCached(
+								ttl,
+								tableName,
+								hashName,
+								hash,
+								rangeName,
+								range
+							);
+						};
+					}
+
+					break;
+
 				case "get-cached-versioned":
 
 					if (versionName === undefined) {
