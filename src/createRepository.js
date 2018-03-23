@@ -502,7 +502,7 @@ function createRepository(request) {
 							indexHash,
 							versionName
 						);
-					}
+					};
 
 					break;
 				}
@@ -518,7 +518,7 @@ function createRepository(request) {
 								hashName,
 								hash
 							);
-						}
+						};
 					}
 					else {
 
@@ -531,8 +531,21 @@ function createRepository(request) {
 								rangeName,
 								range
 							);
-						}
+						};
 					}
+
+					break;
+
+				case "update":
+
+					prototype[methodName] = function (item) {
+
+						return this.da.update(
+							tableName,
+							hashName,
+							item
+						);
+					};
 
 					break;
 
@@ -549,7 +562,8 @@ function createRepository(request) {
 							versionName,
 							item
 						);
-					}
+					};
+
 					break;
 
 				case "update-cached-versioned":

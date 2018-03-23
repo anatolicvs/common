@@ -321,10 +321,10 @@ class DataAccess {
 		}
 	}
 
-	async update(tableName, hash, item) {
+	async update(tableName, hashName, item) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
+		assertNonEmptyString(hashName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -338,7 +338,10 @@ class DataAccess {
 			const response = await this.ddb.put({
 				TableName: prefixedTableName,
 				Item: item,
-				ConditionExpression: `attribute_exists(${hash})`,
+				ConditionExpression: "attribute_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
@@ -351,8 +354,8 @@ class DataAccess {
 		}
 		finally {
 
-			const diff = process.hrtime(time);
-			const elapsed = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
+			const [s, ns] = process.hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
 
@@ -366,7 +369,7 @@ class DataAccess {
 			else {
 
 				this.log.warn(
-					"update-versioned %s %s %s",
+					"update %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
