@@ -438,6 +438,33 @@ function createRepository(request) {
 					break;
 				}
 
+				case "query-table-cached": {
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					if (rangeName === undefined) {
+
+						throw new Error();
+					}
+					else {
+
+						prototype[methodName] = function (hash) {
+
+							return this.da.queryTableRangedCached(
+								ttl,
+								tableName,
+								hashName,
+								rangeName,
+								hash
+							);
+						};
+					}
+
+					break;
+				}
+
 				case "query-index": {
 
 					let indexName;

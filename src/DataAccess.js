@@ -34,6 +34,47 @@ const {
 
 class DataAccess {
 
+	async getCachedItems(prefixedTableName, setKey) {
+
+		if (this.redis.connected) {
+
+			try {
+
+				const ids = await this.redis.zrangeAsync(
+					setKey,
+					0,
+					-1
+				);
+
+				if (0 < ids.length) {
+
+					const multi = this.redis.multi();
+
+					for (const id of ids) {
+
+						const key = `${prefixedTableName}!${id}`;
+
+						multi.get(
+							key
+						);
+					}
+
+					const jsons = await multi.execAsync();
+
+					if (jsons.indexOf(null) < 0) {
+						return jsons.map(JSON.parse);
+					}
+				}
+			}
+			catch (error) {
+
+				this.log.warn(
+					error
+				);
+			}
+		}
+	}
+
 	async create(tableName, hashName, item) {
 
 		assertNonEmptyString(tableName);
@@ -1413,44 +1454,17 @@ class DataAccess {
 
 		try {
 
-			if (this.redis.connected) {
+			let items = await this.getCachedItems(
+				prefixedTableName,
+				prefixedTableName
+			);
 
-				try {
-
-					const ids = await this.redis.zrangeAsync(
-						prefixedTableName,
-						0,
-						-1
-					);
-
-					length = ids.length;
-
-					if (0 < length) {
-
-						const multi = this.redis.multi();
-
-						for (const id of ids) {
-
-							const key = `${prefixedTableName}!${id}`;
-
-							multi.get(
-								key
-							);
-						}
-
-						const jsons = await multi.execAsync();
-
-						if (jsons.indexOf(null) < 0) {
-							return jsons.map(JSON.parse);
-						}
-					}
-				}
-				catch (error) {
-
-					this.log.warn(
-						error
-					);
-				}
+			if (items === undefined) {
+				// ok
+			}
+			else {
+				length = items.length;
+				return items;
 			}
 
 			const response = await this.ddb.scan({
@@ -1458,7 +1472,7 @@ class DataAccess {
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
-			const items = response.Items;
+			items = response.Items;
 			length = items.length;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
@@ -1580,44 +1594,17 @@ class DataAccess {
 
 		try {
 
-			if (this.redis.connected) {
+			let items = await this.getCachedItems(
+				prefixedTableName,
+				prefixedTableName
+			);
 
-				try {
-
-					const ids = await this.redis.zrangeAsync(
-						prefixedTableName,
-						0,
-						-1
-					);
-
-					length = ids.length;
-
-					if (0 < length) {
-
-						const multi = this.redis.multi();
-
-						for (const id of ids) {
-
-							const key = `${prefixedTableName}!${id}`;
-
-							multi.get(
-								key
-							);
-						}
-
-						const jsons = await multi.execAsync();
-
-						if (jsons.indexOf(null) < 0) {
-							return jsons.map(JSON.parse);
-						}
-					}
-				}
-				catch (error) {
-
-					this.log.warn(
-						error
-					);
-				}
+			if (items === undefined) {
+				// ok
+			}
+			else {
+				length = items.length;
+				return items;
 			}
 
 			const response = await this.ddb.scan({
@@ -1625,7 +1612,7 @@ class DataAccess {
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
-			const items = response.Items;
+			items = response.Items;
 			length = items.length;
 			consumed = response.ConsumedCapacity.CapacityUnits;
 
@@ -1710,7 +1697,7 @@ class DataAccess {
 			if (caught === undefined) {
 
 				this.log.trace(
-					"scan-ranged-cached %s(%s,%s) %d %d %s",
+					"scan-cached %s(%s,%s) %d %d %s",
 					prefixedTableName,
 					hashName,
 					rangeName,
@@ -1722,7 +1709,7 @@ class DataAccess {
 			else {
 
 				this.log.warn(
-					"scan-ranged-cached %s(%s,%s) %s %s",
+					"scan-cached %s(%s,%s) %s %s",
 					prefixedTableName,
 					hashName,
 					rangeName,
@@ -2022,6 +2009,154 @@ class DataAccess {
 		}
 	}
 
+	async queryTableRangedCached(ttl, tableName, hashName, rangeName, hash) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+		const setKey = `${prefixedTableName}!${hash}`;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			let items = await this.getCachedItems(
+				prefixedTableName,
+				setKey
+			);
+
+			if (items === undefined) {
+				// ok
+			}
+			else {
+				length = items.length;
+				return items;
+			}
+
+			const response = await this.ddb.query({
+				TableName: prefixedTableName,
+				KeyConditionExpression: "#hash = :hash",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ExpressionAttributeValues: {
+					":hash": hash
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			items = response.Items;
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (0 < length) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const multi = this.redis.multi();
+						const ids = [];
+
+						for (let i = 0; i < length; i++) {
+
+							const item = items[i];
+
+							const id = `${item[hashName]}!${item[rangeName]}`;
+							const key = `${prefixedTableName}!${id}`;
+
+							const json = JSON.stringify(
+								item
+							);
+
+							multi.set(
+								key,
+								json,
+								"EX",
+								ttl
+							);
+
+							ids.push(
+								i,
+								id
+							);
+						}
+
+						multi.del(
+							setKey
+						);
+
+						multi.zadd(
+							setKey,
+							ids
+						);
+
+						multi.expire(
+							setKey,
+							ttl
+						);
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						)
+					}
+				}
+			}
+
+			return items;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"query-table-cached %s(%s) %d %d %s",
+					prefixedTableName,
+					hashName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"query-table-cached %s(%s) %s %s",
+					prefixedTableName,
+					hashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async queryIndex(tableName, indexName, indexHashName, indexHash, desc) {
 
 		assertNonEmptyString(tableName);
@@ -2117,44 +2252,17 @@ class DataAccess {
 
 		try {
 
-			if (this.redis.connected) {
+			let items = await this.getCachedItems(
+				prefixedTableName,
+				setKey
+			);
 
-				try {
-
-					const ids = await this.redis.zrangeAsync(setKey, 0, -1);
-
-					length = ids.length;
-
-					if (0 < length) {
-
-						const multi = this.redis.multi();
-
-						for (let i = 0; i < length; i++) {
-
-							// group-1_user-1
-							// group-1_user-1 ! 123
-							const id = ids[i];
-
-							// group-user-pairs ! group-1_user-1
-							// group-user-pairs ! group-1_user-1 ! 123
-							const key = `${prefixedTableName}!${id}`;
-
-							multi.get(key);
-						}
-
-						const jsons = await multi.execAsync();
-
-						if (jsons.indexOf(null) < 0) {
-							return jsons.map(JSON.parse);
-						}
-					}
-				}
-				catch (error) {
-
-					this.log.warn(
-						error
-					)
-				}
+			if (items === undefined) {
+				// ok
+			}
+			else {
+				length = items.length;
+				return items;
 			}
 
 			const response = await this.ddb.query({
@@ -2171,7 +2279,7 @@ class DataAccess {
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
-			const items = response.Items;
+			items = response.Items;
 
 			length = items.length;
 			consumed = response.ConsumedCapacity.CapacityUnits;

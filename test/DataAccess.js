@@ -68,6 +68,19 @@ mockDynamoDB.createTableRequests = [
 			{ AttributeName: "createdAt", AttributeType: "N" }
 		],
 		ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 },
+	},
+
+	{
+		TableName: "prefix.user-logins",
+		KeySchema: [
+			{ AttributeName: "id", KeyType: "HASH" },
+			{ AttributeName: "ts", KeyType: "RANGE" }
+		],
+		AttributeDefinitions: [
+			{ AttributeName: "id", AttributeType: "S" },
+			{ AttributeName: "ts", AttributeType: "N" }
+		],
+		ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 },
 	}
 ];
 
@@ -85,6 +98,13 @@ mockDynamoDB.items = {
 	"prefix.group-user-pairs": [
 		{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 },
 		{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 }
+	],
+	"prefix.user-logins": [
+		{ id: "user-1", ts: 0 },
+		{ id: "user-1", ts: 1 },
+		{ id: "user-1", ts: 2 },
+		{ id: "user-2", ts: 0 },
+		{ id: "user-2", ts: 1 }
 	]
 };
 
@@ -263,6 +283,69 @@ describe("RepositoryGenerator", () => {
 		);
 	});
 
+	it("query-table-ranged-cached", async () => {
+
+		await assertRedisEmpty();
+
+		const ttl = 10 + Math.floor(Math.random() * 10);
+
+		assert.deepStrictEqual(
+			await dba.queryTableRangedCached(ttl, "user-logins", "id", "ts", "user-1"),
+			[
+				{ id: 'user-1', ts: 0 },
+				{ id: 'user-1', ts: 1 },
+				{ id: 'user-1', ts: 2 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!0"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!2"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.zrangeAsync("prefix.user-logins!user-1", 0, -1, "WITHSCORES"),
+			[
+				"user-1!0",
+				"0",
+				"user-1!1",
+				"1",
+				"user-1!2",
+				"2"
+			]
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!0")),
+			{ id: 'user-1', ts: 0 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!1")),
+			{ id: 'user-1', ts: 1 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!2")),
+			{ id: 'user-1', ts: 2 }
+		);
+	});
+
 	it("scan-cached", async () => {
 
 		await assertRedisEmpty();
@@ -310,6 +393,103 @@ describe("RepositoryGenerator", () => {
 		assert.deepStrictEqual(
 			JSON.parse(await redisClient.getAsync("prefix.group-user-pairs!group-2|user-1")),
 			{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 }
+		);
+
+		assert.deepStrictEqual(
+			await dba.scanCached(ttl, "group-user-pairs", "id"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+	});
+
+	it("scan-ranged-cached", async () => {
+
+		await assertRedisEmpty();
+
+		const ttl = 10 + Math.floor(Math.random() * 10);
+
+		assert.deepStrictEqual(
+			await dba.scanRangedCached(ttl, "user-logins", "id", "ts"),
+			[
+				{ id: "user-2", ts: 0 },
+				{ id: "user-2", ts: 1 },
+				{ id: "user-1", ts: 0 },
+				{ id: "user-1", ts: 1 },
+				{ id: "user-1", ts: 2 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!0"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-1!2"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-2!0"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.user-logins!user-2!1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.zrangeAsync("prefix.user-logins", 0, -1, "WITHSCORES"),
+			[
+				"user-2!0",
+				"0",
+				"user-2!1",
+				"1",
+				"user-1!0",
+				"2",
+				"user-1!1",
+				"3",
+				"user-1!2",
+				"4"
+			]
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!0")),
+			{ id: 'user-1', ts: 0 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!1")),
+			{ id: 'user-1', ts: 1 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!2")),
+			{ id: 'user-1', ts: 2 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-2!0")),
+			{ id: 'user-2', ts: 0 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-2!1")),
+			{ id: 'user-2', ts: 1 }
 		);
 	});
 
@@ -365,6 +545,64 @@ describe("RepositoryGenerator", () => {
 			[
 				{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 },
 				0
+			]
+		);
+	});
+
+	it("query-index-cached", async () => {
+
+		await assertRedisEmpty();
+
+		const ttl = 10 + Math.floor(Math.random() * 10);
+
+		assert.deepStrictEqual(
+			await dba.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!userId-createdAt-index!user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-1|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-2|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.zrangeAsync("prefix.group-user-pairs!userId-createdAt-index!user-1", 0, -1, "WITHSCORES"),
+			[
+				"group-1|user-1",
+				"0",
+				"group-2|user-1",
+				"1"
+			]
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.group-user-pairs!group-1|user-1")),
+			{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.group-user-pairs!group-2|user-1")),
+			{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 }
+		);
+
+		assert.deepStrictEqual(
+			await dba.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
 			]
 		);
 	});
