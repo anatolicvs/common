@@ -28,6 +28,10 @@ function assertOptionalNonEmptyString(value) {
 	);
 }
 
+const {
+	hrtime
+} = process;
+
 class DataAccess {
 
 	async create(tableName, hashName, item) {
@@ -40,7 +44,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -63,7 +67,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -98,7 +102,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -122,7 +126,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -157,7 +161,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -232,7 +236,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -256,28 +260,31 @@ class DataAccess {
 		}
 	}
 
-	async createOrGet(tableName, hash, range, item) {
+	async createOrGet(tableName, hashName, rangeName, item) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
-		assertOptionalNonEmptyString(range);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
 		let existingItem;
 		let consumed = 0;
+		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
-			let putResponse;
 			try {
 
-				putResponse = await this.ddb.put({
+				const putResponse = await this.ddb.put({
 					TableName: prefixedTableName,
 					Item: item,
-					ConditionExpression: `attribute_not_exists(${hash})`,
+					ConditionExpression: "attribute_not_exists(#hash)",
+					ExpressionAttributeNames: {
+						"#hash": hashName
+					},
 					ReturnConsumedCapacity: "TOTAL"
 				}).promise();
 
@@ -297,7 +304,7 @@ class DataAccess {
 
 			const getResponse = await this.ddb.get({
 				TableName: prefixedTableName,
-				Key: range === undefined ? { [hash]: item[hash] } : { [hash]: item[hash], [range]: item[range] },
+				Key: rangeName === undefined ? { [hashName]: item[hashName] } : { [hashName]: item[hashName], [rangeName]: item[rangeName] },
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
@@ -306,18 +313,34 @@ class DataAccess {
 
 			return existingItem;
 		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.trace(
-				"create-or-get %s %d %d %s",
-				prefixedTableName,
-				existingItem === undefined ? 0 : 1,
-				consumed,
-				elapsed
-			);
+			if (caught === undefined) {
+
+				this.log.trace(
+					"create-or-get %s %d %d %s",
+					prefixedTableName,
+					existingItem === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+				this.log.warn(
+					"create-or-get %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
 		}
 	}
 
@@ -331,7 +354,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -354,7 +377,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -400,7 +423,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -475,7 +498,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -518,7 +541,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -553,7 +576,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -614,7 +637,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -656,7 +679,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -700,7 +723,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -728,7 +751,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -765,7 +788,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -784,7 +807,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -819,7 +842,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -838,7 +861,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -873,7 +896,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -896,7 +919,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -932,7 +955,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -956,7 +979,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1001,7 +1024,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1081,7 +1104,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1127,7 +1150,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1235,7 +1258,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1268,7 +1291,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1293,7 +1316,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1328,7 +1351,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1350,7 +1373,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1388,7 +1411,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1576,7 +1599,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1601,6 +1624,69 @@ class DataAccess {
 		}
 	}
 
+	async queryTable(tableName, hashName, hash) {
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.query({
+				TableName: prefixedTableName,
+				KeyConditionExpression: "#hash = :hash",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ExpressionAttributeValues: {
+					":hash": hash
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			const items = response.Items;
+
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			return items;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"query-table %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"query-table %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async queryIndex(tableName, indexName, indexHashName, indexHash, desc) {
 
 		assertNonEmptyString(tableName);
@@ -1609,11 +1695,11 @@ class DataAccess {
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
-		let length;
+		let length = 0;
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1645,7 +1731,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1692,7 +1778,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -1839,7 +1925,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -1887,7 +1973,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -2102,7 +2188,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -2169,8 +2255,11 @@ class DataAccess {
 
 		let length;
 		let consumed = 0;
-		const time = process.hrtime();
+
+		const time = hrtime();
+
 		try {
+
 			const queue = [];
 			const map = new Map();
 			const results = [];
@@ -2340,7 +2429,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			this.log.trace(
@@ -2378,7 +2467,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -2635,7 +2724,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {
@@ -2686,7 +2775,7 @@ class DataAccess {
 		let consumed = 0;
 		let caught;
 
-		const time = process.hrtime();
+		const time = hrtime();
 
 		try {
 
@@ -3050,7 +3139,7 @@ class DataAccess {
 		}
 		finally {
 
-			const [s, ns] = process.hrtime(time);
+			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
 			if (caught === undefined) {

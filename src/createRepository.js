@@ -269,12 +269,14 @@ function createRepository(request) {
 					break;
 
 				case "scan":
-					prototype[methodName] = function () {
+
+				prototype[methodName] = function () {
 
 						return this.da.scan(
 							tableName
 						);
-					}
+					};
+
 					break;
 
 				case "get-cached":
@@ -331,7 +333,7 @@ function createRepository(request) {
 							hash,
 							versionName
 						);
-					}
+					};
 
 					break;
 
@@ -349,7 +351,7 @@ function createRepository(request) {
 							hashName,
 							hashes
 						);
-					}
+					};
 
 					break;
 
@@ -372,9 +374,23 @@ function createRepository(request) {
 							versionName,
 							hashes
 						);
-					}
+					};
 
 					break;
+
+				case "query-table": {
+
+					prototype[methodName] = function (hash) {
+
+						return this.da.queryTable(
+							tableName,
+							hashName,
+							hash
+						);
+					};
+
+					break;
+				}
 
 				case "query-index": {
 
@@ -421,7 +437,7 @@ function createRepository(request) {
 							indexHash,
 							desc
 						);
-					}
+					};
 
 					break;
 				}
@@ -478,7 +494,7 @@ function createRepository(request) {
 							indexHash,
 							desc
 						);
-					}
+					};
 
 					break;
 				}
@@ -652,7 +668,8 @@ function createRepository(request) {
 							versionName,
 							item
 						);
-					}
+					};
+
 					break;
 
 				default:
