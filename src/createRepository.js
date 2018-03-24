@@ -136,6 +136,20 @@ function createRepository(request) {
 
 					break;
 
+				case "create-or-get":
+
+					prototype[methodName] = function (item) {
+
+						return this.da.createOrGet(
+							tableName,
+							hashName,
+							rangeName,
+							item
+						);
+					};
+
+					break;
+
 				case "create-versioned":
 
 					prototype[methodName] = function (item) {
@@ -270,7 +284,7 @@ function createRepository(request) {
 
 				case "scan":
 
-				prototype[methodName] = function () {
+					prototype[methodName] = function () {
 
 						return this.da.scan(
 							tableName
