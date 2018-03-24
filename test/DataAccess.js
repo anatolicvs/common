@@ -662,4 +662,32 @@ describe("RepositoryGenerator", () => {
 			]
 		);
 	});
+
+	it("query-index-first", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", false),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 }
+			]
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("query-index-first desc", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", true),
+			[
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		await assertRedisEmpty();
+	});
 });

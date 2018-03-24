@@ -2660,6 +2660,80 @@ class DataAccess {
 		}
 	}
 
+	async queryIndexFirst(tableName, indexName, indexHashName, indexHash, desc) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(indexName);
+		assertNonEmptyString(indexHashName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.query({
+				TableName: prefixedTableName,
+				IndexName: indexName,
+				Limit: 1,
+				KeyConditionExpression: "#hash = :hash",
+				ExpressionAttributeNames: {
+					"#hash": indexHashName
+				},
+				ExpressionAttributeValues: {
+					":hash": indexHash
+				},
+				ScanIndexForward: desc === true ? false : true,
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			const items = response.Items;
+
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			return items;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"query-index-first %s %s(%s) %d %d %s",
+					prefixedTableName,
+					indexName,
+					indexHashName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"query-index-first %s %s(%s) %s %s",
+					prefixedTableName,
+					indexName,
+					indexHashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async enumerateTable(tableName) {
 
 		assertNonEmptyString(tableName);
