@@ -301,11 +301,10 @@ class DataAccess {
 		}
 	}
 
-	async createOrGet(tableName, hashName, rangeName, item) {
+	async createOrGet(tableName, hashName, item) {
 
 		assertNonEmptyString(tableName);
 		assertNonEmptyString(hashName);
-		assertOptionalNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -345,7 +344,7 @@ class DataAccess {
 
 			const getResponse = await this.ddb.get({
 				TableName: prefixedTableName,
-				Key: rangeName === undefined ? { [hashName]: item[hashName] } : { [hashName]: item[hashName], [rangeName]: item[rangeName] },
+				Key: { [hashName]: item[hashName] },
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
@@ -367,8 +366,9 @@ class DataAccess {
 			if (caught === undefined) {
 
 				this.log.trace(
-					"create-or-get %s %d %d %s",
+					"create-or-get %s(%s) %d %d %s",
 					prefixedTableName,
+					hashName,
 					existingItem === undefined ? 0 : 1,
 					consumed,
 					elapsed
@@ -376,8 +376,248 @@ class DataAccess {
 			}
 			else {
 				this.log.warn(
-					"create-or-get %s %s %s",
+					"create-or-get %s(%s) %s %s",
 					prefixedTableName,
+					hashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async createOrGetRanged(tableName, hashName, rangeName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let existingItem;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			try {
+
+				const putResponse = await this.ddb.put({
+					TableName: prefixedTableName,
+					Item: item,
+					ConditionExpression: "attribute_not_exists(#hash)",
+					ExpressionAttributeNames: {
+						"#hash": hashName
+					},
+					ReturnConsumedCapacity: "TOTAL"
+				}).promise();
+
+				consumed = putResponse.ConsumedCapacity.CapacityUnits;
+
+				return;
+			}
+			catch (error) {
+
+				if (error.code === "ConditionalCheckFailedException") {
+					// ok
+				}
+				else {
+					throw error;
+				}
+			}
+
+			const getResponse = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: { [hashName]: item[hashName], [rangeName]: item[rangeName] },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			existingItem = getResponse.Item;
+			consumed = getResponse.ConsumedCapacity.CapacityUnits;
+
+			return existingItem;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"create-or-get %s(%s,%s) %d %d %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					existingItem === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+				this.log.warn(
+					"create-or-get %s(%s,%s) %s %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async getOrCreate(tableName, hashName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let existingItem;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const getResponse = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: { [hashName]: item[hashName] },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			existingItem = getResponse.Item;
+			consumed = getResponse.ConsumedCapacity.CapacityUnits;
+
+			if (existingItem !== undefined) {
+				return existingItem;
+			}
+
+			const putResponse = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: item,
+				ConditionExpression: "attribute_not_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed += putResponse.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"get-or-create %s(%s) %d %d %s",
+					prefixedTableName,
+					hashName,
+					existingItem === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"get-or-create %s(%s) %s %s",
+					prefixedTableName,
+					hashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async getOrCreateRanged(tableName, hashName, rangeName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let existingItem;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const getResponse = await this.ddb.get({
+				TableName: prefixedTableName,
+				Key: { [hashName]: item[hashName], [rangeName]: item[rangeName] },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			existingItem = getResponse.Item;
+			consumed = getResponse.ConsumedCapacity.CapacityUnits;
+
+			if (existingItem !== undefined) {
+				return existingItem;
+			}
+
+			const putResponse = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: item,
+				ConditionExpression: "attribute_not_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed += putResponse.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"get-or-create %s(%s,%s) %d %d %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					existingItem === undefined ? 0 : 1,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"get-or-create %s(%s,%s) %s %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
 					caught.code,
 					elapsed
 				);

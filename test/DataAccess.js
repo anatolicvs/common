@@ -690,4 +690,52 @@ describe("RepositoryGenerator", () => {
 
 		await assertRedisEmpty();
 	});
+
+	it("create-or-get create", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.createOrGet("group-user-pairs", "id", { id: "group-3|user-1" }),
+			undefined
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("create-or-get get", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.createOrGet("group-user-pairs", "id", { id: "group-1|user-1" }),
+			{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("get-or-create get", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.getOrCreate("group-user-pairs", "id", { id: "group-1|user-1" }),
+			{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("get-or-create create", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.getOrCreate("group-user-pairs", "id", { id: "group-4|user-1" }),
+			undefined
+		);
+
+		await assertRedisEmpty();
+	});
 });

@@ -138,15 +138,57 @@ function createRepository(request) {
 
 				case "create-or-get":
 
-					prototype[methodName] = function (item) {
+					if (rangeName === undefined) {
 
-						return this.da.createOrGet(
-							tableName,
-							hashName,
-							rangeName,
-							item
-						);
-					};
+						prototype[methodName] = function (item) {
+
+							return this.da.createOrGet(
+								tableName,
+								hashName,
+								item
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.createOrGetRanged(
+								tableName,
+								hashName,
+								rangeName,
+								item
+							);
+						};
+					}
+
+					break;
+
+				case "get-or-create":
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.getOrCreate(
+								tableName,
+								hashName,
+								item
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.getOrCreateRanged(
+								tableName,
+								hashName,
+								rangeName,
+								item
+							);
+						};
+					}
 
 					break;
 
