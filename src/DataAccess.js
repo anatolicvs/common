@@ -1398,11 +1398,10 @@ class DataAccess {
 		}
 	}
 
-	async scanCached(ttl, tableName, hashName, rangeName) {
+	async scanCached(ttl, tableName, hashName) {
 
 		assertNonEmptyString(tableName);
 		assertNonEmptyString(hashName);
-		assertOptionalNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -1476,16 +1475,7 @@ class DataAccess {
 
 							const item = items[i];
 
-							// id is `${hash}` or `${hash}!${range}`
-
-							let id;
-							if (rangeName === undefined) {
-								id = item[hashName];
-							}
-							else {
-								id = `${item[hashName]}!${item[rangeName]}`;
-							}
-
+							const id = item[hashName];
 							const key = `${prefixedTableName}!${id}`;
 
 							const json = JSON.stringify(
@@ -1499,7 +1489,10 @@ class DataAccess {
 								ttl
 							);
 
-							ids.push(i, id);
+							ids.push(
+								i,
+								id
+							);
 						}
 
 						multi.del(
@@ -1550,8 +1543,9 @@ class DataAccess {
 			if (caught === undefined) {
 
 				this.log.trace(
-					"scan-cached %s %d %d %s",
+					"scan-cached %s(%s) %d %d %s",
 					prefixedTableName,
+					hashName,
 					length,
 					consumed,
 					elapsed
@@ -1560,8 +1554,178 @@ class DataAccess {
 			else {
 
 				this.log.warn(
-					"scan-cached %s %s %s",
+					"scan-cached %s(%s) %s %s",
 					prefixedTableName,
+					hashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async scanRangedCached(ttl, tableName, hashName, rangeName) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			if (this.redis.connected) {
+
+				try {
+
+					const ids = await this.redis.zrangeAsync(
+						prefixedTableName,
+						0,
+						-1
+					);
+
+					length = ids.length;
+
+					if (0 < length) {
+
+						const multi = this.redis.multi();
+
+						for (const id of ids) {
+
+							const key = `${prefixedTableName}!${id}`;
+
+							multi.get(
+								key
+							);
+						}
+
+						const jsons = await multi.execAsync();
+
+						if (jsons.indexOf(null) < 0) {
+							return jsons.map(JSON.parse);
+						}
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
+			}
+
+			const response = await this.ddb.scan({
+				TableName: prefixedTableName,
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			const items = response.Items;
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (0 < length) {
+
+				if (this.redis.connected) {
+
+					try {
+
+						const multi = this.redis.multi();
+						const ids = [];
+
+						for (let i = 0; i < length; i++) {
+
+							const item = items[i];
+
+							const id = `${item[hashName]}!${item[rangeName]}`;
+							const key = `${prefixedTableName}!${id}`;
+
+							const json = JSON.stringify(
+								item
+							);
+
+							multi.set(
+								key,
+								json,
+								"EX",
+								ttl
+							);
+
+							ids.push(
+								i,
+								id
+							);
+						}
+
+						multi.del(
+							prefixedTableName
+						);
+
+						multi.zadd(
+							prefixedTableName,
+							ids
+						);
+
+						multi.expire(
+							prefixedTableName,
+							ttl
+						);
+
+						// no need to wait
+						multi.exec((error, reply) => {
+
+							if (error) {
+								this.log.warn(
+									error
+								);
+							}
+						});
+					}
+					catch (error) {
+
+						this.log.warn(
+							error
+						)
+					}
+				}
+			}
+
+			return items;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"scan-ranged-cached %s(%s,%s) %d %d %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"scan-ranged-cached %s(%s,%s) %s %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
 					caught.code,
 					elapsed
 				);

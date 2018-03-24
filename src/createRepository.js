@@ -293,6 +293,38 @@ function createRepository(request) {
 
 					break;
 
+				case "scan-cached":
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function () {
+
+							return this.da.scanCached(
+								ttl,
+								tableName,
+								hashName
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function () {
+
+							return this.da.scanRangedCached(
+								ttl,
+								tableName,
+								hashName,
+								rangeName
+							);
+						};
+					}
+
+					break;
+
 				case "get-cached":
 
 					if (ttl === undefined) {
