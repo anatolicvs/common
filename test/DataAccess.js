@@ -4,7 +4,7 @@ const redis = require("redis");
 const RedisServer = require('redis-server');
 const bluebird = require("bluebird");
 
-const { NoLog, ConsoleLog, tools } = require("..");
+const { NoLog } = require("..");
 const { DataAccess } = require("../src/DataAccess");
 const { MockDynamoDB } = require("./MockDynamoDB.js");
 
@@ -733,6 +733,18 @@ describe("RepositoryGenerator", () => {
 
 		assert.deepStrictEqual(
 			await dba.getOrCreate("group-user-pairs", "id", { id: "group-4|user-1" }),
+			undefined
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("create", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.create("users", "id", { id: "user-30" }),
 			undefined
 		);
 
