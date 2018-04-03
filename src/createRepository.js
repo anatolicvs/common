@@ -1,3 +1,13 @@
+class RepositoryBase {
+
+	query(params) {
+		return this.da.query(params);
+	}
+};
+
+RepositoryBase.prototype.da = null;
+
+
 function createRepository(request) {
 
 	const {
@@ -15,12 +25,10 @@ function createRepository(request) {
 		throw new Error();
 	}
 
-	class Repository { };
+	class Repository extends RepositoryBase { };
 	const {
 		prototype
 	} = Repository;
-
-	prototype.da = null;
 
 	for (const rawTableName in tableDefinitions) {
 

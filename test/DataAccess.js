@@ -81,6 +81,30 @@ mockDynamoDB.createTableRequests = [
 			{ AttributeName: "ts", AttributeType: "N" }
 		],
 		ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 },
+	},
+
+	{
+		TableName: "prefix.user-items",
+		KeySchema: [
+			{ AttributeName: "id", KeyType: "HASH" }
+		],
+		AttributeDefinitions: [
+			{ AttributeName: "id", AttributeType: "S" },
+			{ AttributeName: "userId", AttributeType: "S" },
+			{ AttributeName: "createdAt", AttributeType: "N" }
+		],
+		GlobalSecondaryIndexes: [
+			{
+				IndexName: "userId-createdAt-index",
+				KeySchema: [
+					{ AttributeName: "userId", KeyType: "HASH" },
+					{ AttributeName: "createdAt", KeyType: "RANGE" }
+				],
+				Projection: { ProjectionType: "ALL" },
+				ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 }
+			},
+		],
+		ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 },
 	}
 ];
 
@@ -105,13 +129,35 @@ mockDynamoDB.items = {
 		{ id: "user-1", ts: 2 },
 		{ id: "user-2", ts: 0 },
 		{ id: "user-2", ts: 1 }
+	],
+	"prefix.user-items": [
+		{ id: "item-0", createdAt: 0, userId: "user-1" },
+		{ id: "item-1", createdAt: 1, userId: "user-1" },
+		{ id: "item-2", createdAt: 2, userId: "user-1" },
+		{ id: "item-3", createdAt: 3, userId: "user-1" },
+		{ id: "item-4", createdAt: 4, userId: "user-1" },
+		{ id: "item-5", createdAt: 5, userId: "user-1" },
+		{ id: "item-6", createdAt: 6, userId: "user-1" },
+		{ id: "item-7", createdAt: 7, userId: "user-1" },
+		{ id: "item-8", createdAt: 8, userId: "user-1" },
+		{ id: "item-9", createdAt: 9, userId: "user-1" },
+		{ id: "item-10", createdAt: 10, userId: "user-2" },
+		{ id: "item-11", createdAt: 11, userId: "user-2" },
+		{ id: "item-12", createdAt: 12, userId: "user-2" },
+		{ id: "item-13", createdAt: 13, userId: "user-2" },
+		{ id: "item-14", createdAt: 14, userId: "user-2" },
+		{ id: "item-15", createdAt: 15, userId: "user-2" },
+		{ id: "item-16", createdAt: 16, userId: "user-2" },
+		{ id: "item-17", createdAt: 17, userId: "user-2" },
+		{ id: "item-18", createdAt: 18, userId: "user-2" },
+		{ id: "item-19", createdAt: 19, userId: "user-2" },
 	]
 };
 
 let redisServer;
 let redisClient;
 
-describe("RepositoryGenerator", () => {
+describe("DataAccess", () => {
 
 	const dba = new DataAccess();
 	dba.log = NoLog.instance;
@@ -344,6 +390,202 @@ describe("RepositoryGenerator", () => {
 			JSON.parse(await redisClient.getAsync("prefix.user-logins!user-1!2")),
 			{ id: 'user-1', ts: 2 }
 		);
+	});
+
+	it("scan", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.scan("group-user-pairs"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		await assertRedisEmpty();
+	});
+
+	it("enumerate-table", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.enumerateTable("group-user-pairs", 1),
+			{
+				items: [
+					{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
+				],
+				lastEvaluatedKey: { id: "group-1|user-1" }
+			}
+		);
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.enumerateTable("group-user-pairs", 1, { id: "group-1|user-1" }),
+			{
+				items: [
+					{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+				],
+				lastEvaluatedKey: { id: "group-2|user-1" }
+			}
+		);
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.enumerateTable("group-user-pairs", 1, { id: "group-2|user-1" }),
+			{
+				items: []
+			}
+		);
+
+		await assertRedisEmpty();
+	});
+
+	describe("enumerate-index-ranged", () => {
+
+		it("limit<n,asc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, false),
+				{
+					items: [
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+					],
+					lastEvaluatedKey: { id: "item-1", createdAt: 1, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-1", createdAt: 1, userId: "user-1" }, false),
+				{
+					items: [
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
+					],
+					lastEvaluatedKey: { id: "item-3", createdAt: 3, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
+				{
+					items: []
+				}
+			);
+		});
+
+		it("limit<n,desc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, true),
+				{
+					items: [
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+					],
+					lastEvaluatedKey: { id: "item-2", createdAt: 2, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-2", createdAt: 2, userId: "user-1" }, true),
+				{
+					items: [
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
+					],
+					lastEvaluatedKey: { id: "item-0", createdAt: 0, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
+				{
+					items: []
+				}
+			);
+		});
+
+		it("limit=n,asc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, false),
+				{
+					items: [
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' }
+					],
+					lastEvaluatedKey: { id: "item-3", createdAt: 3, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
+				{
+					items: []
+				}
+			);
+		});
+
+		it("limit=n,desc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, true),
+				{
+					items: [
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
+					],
+					lastEvaluatedKey: { id: "item-0", createdAt: 0, userId: "user-1" }
+				}
+			);
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
+				{
+					items: []
+				}
+			);
+		});
+
+		it("limit>n,asc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, false),
+				{
+					items: [
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' }
+					]
+				}
+			);
+		});
+
+		it("limit>n,desc", async () => {
+
+			assert.deepStrictEqual(
+				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, true),
+				{
+					items: [
+						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
+						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
+						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
+						{ id: 'item-0', createdAt: 0, userId: 'user-1' }
+					]
+				}
+			);
+		});
 	});
 
 	it("scan-cached", async () => {

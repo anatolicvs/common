@@ -28,6 +28,23 @@ function assertOptionalNonEmptyString(value) {
 	);
 }
 
+function assertPositiveInteger(value) {
+
+	if (Number.isInteger(value)) {
+		// ok
+	}
+	else {
+		throw new Error();
+	}
+
+	if (0 < value) {
+		// ok
+	}
+	else {
+		throw new Error();
+	}
+}
+
 const {
 	hrtime
 } = process;
@@ -2186,6 +2203,75 @@ class DataAccess {
 		}
 	}
 
+	async query(params) {
+
+		const {
+			TableName: tableName,
+			ReturnConsumedCapacity: returnConsumedCapacity
+		} = params;
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		params.TableName = prefixedTableName;
+
+		if (returnConsumedCapacity === undefined) {
+			params.ReturnConsumedCapacity = "TOTAL";
+		}
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.query(
+				params
+			).promise();
+
+			const items = response.Items;
+
+			length = items.length;
+
+			if (returnConsumedCapacity === undefined) {
+				consumed = response.ConsumedCapacity.CapacityUnits;
+			}
+
+			return response;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"query %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"query %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async queryTable(tableName, hashName, hash) {
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
@@ -3081,33 +3167,226 @@ class DataAccess {
 		}
 	}
 
-	async enumerateTable(tableName) {
+	// async enumerateTable(tableName) {
+
+	// 	assertNonEmptyString(tableName);
+
+	// 	const prefixedTableName = this.tableNamePrefix + tableName;
+
+	// 	let ExclusiveStartKey = null;
+	// 	do {
+
+	// 		const response = await this.ddb.scan({
+	// 			TableName: prefixedTableName,
+	// 			ExclusiveStartKey,
+	// 			Limit: limit,
+	// 			ReturnConsumedCapacity: "TOTAL"
+	// 		}).promise();
+
+	// 		const items = response.Items;
+	// 		const lastEvaluatedKey = response.LastEvaluatedKey;
+
+	// 		if (await iterator(items) === true) {
+	// 			break;
+	// 		}
+
+	// 		ExclusiveStartKey = lastEvaluatedKey;
+
+	// 	} while (ExclusiveStartKey);
+	// }
+
+	async enumerateTable(tableName, limit, exclusiveStartKey) {
 
 		assertNonEmptyString(tableName);
+		assertPositiveInteger(limit);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
-		let ExclusiveStartKey = null;
-		do {
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
 
 			const response = await this.ddb.scan({
 				TableName: prefixedTableName,
-				ExclusiveStartKey,
 				Limit: limit,
+				ExclusiveStartKey: exclusiveStartKey,
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
 			const items = response.Items;
 			const lastEvaluatedKey = response.LastEvaluatedKey;
 
-			if (await iterator(items) === true) {
-				break;
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (lastEvaluatedKey === undefined) {
+
+				return {
+					items
+				};
 			}
 
-			ExclusiveStartKey = lastEvaluatedKey;
+			return {
+				items,
+				lastEvaluatedKey
+			}
+		}
+		catch (error) {
 
-		} while (ExclusiveStartKey);
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"enumerate-table %s %d %d %s",
+					prefixedTableName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"enumerate-table %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
 	}
+
+	async enumerateIndexRanged(tableName, indexName, indexHashName, indexHash, indexRangeName, indexRangeStart, indexRangeEnd, limit, exclusiveStartKey, desc) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(indexName);
+		assertNonEmptyString(indexHashName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let KeyConditionExpression;
+		const ExpressionAttributeNames = {
+			"#hash": indexHashName
+		};
+
+		const ExpressionAttributeValues = {
+			":hash": indexHash
+		};
+
+		if (indexRangeStart === undefined) {
+
+			if (indexRangeEnd === undefined) {
+				throw new Error();
+			}
+			else {
+
+				KeyConditionExpression = "#hash = :hash and #range <= :priceEnd";
+				ExpressionAttributeNames["#range"] = indexRangeName;
+				ExpressionAttributeValues[":rangeEnd"] = indexRangeEnd;
+			}
+		}
+		else {
+
+			if (indexRangeEnd === undefined) {
+
+				KeyConditionExpression = "#hash = :hash and :rangeStart <= #range";
+				ExpressionAttributeNames["#range"] = indexRangeName;
+				ExpressionAttributeValues[":rangeStart"] = indexRangeStart;
+			}
+			else {
+
+				KeyConditionExpression = "#hash = :hash and #range between :rangeStart and :rangeEnd";
+				ExpressionAttributeNames["#range"] = indexRangeName;
+				ExpressionAttributeValues[":rangeStart"] = indexRangeStart;
+				ExpressionAttributeValues[":rangeEnd"] = indexRangeEnd;
+			}
+		}
+
+		let length = 0;
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.query({
+				TableName: prefixedTableName,
+				IndexName: indexName,
+				KeyConditionExpression,
+				ExpressionAttributeNames,
+				ExpressionAttributeValues,
+				Limit: limit,
+				ExclusiveStartKey: exclusiveStartKey,
+				ScanIndexForward: desc === true ? false : true,
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			const items = response.Items;
+			const lastEvaluatedKey = response.LastEvaluatedKey;
+
+			length = items.length;
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (lastEvaluatedKey === undefined) {
+
+				return {
+					items
+				};
+			}
+
+			return {
+				items,
+				lastEvaluatedKey
+			};
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"enumerate-index-ranged %s %s %s %d %d %s",
+					prefixedTableName,
+					indexName,
+					indexHashName,
+					length,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"enumerate-index-ranged %s %s %s %s %s",
+					prefixedTableName,
+					indexName,
+					indexHashName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 
 	async batchGet(tableName, hash, range, hashes) {
 
