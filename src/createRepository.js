@@ -599,7 +599,7 @@ function createRepository(request) {
 
 					prototype[methodName] = function (indexHash, indexRangeStart, indexRangeEnd) {
 
-						return this.da.queryIndex(
+						return this.da.queryIndexRanged(
 							tableName,
 							indexName,
 							indexHashName,
