@@ -2494,7 +2494,7 @@ class DataAccess {
 			}
 			else {
 
-				KeyConditionExpression = "#hash = :hash and #range < :priceEnd";
+				KeyConditionExpression = "#hash = :hash and #range <= :priceEnd";
 				ExpressionAttributeNames["#range"] = indexRangeName;
 				ExpressionAttributeValues[":rangeEnd"] = indexRangeEnd;
 			}
@@ -2509,7 +2509,7 @@ class DataAccess {
 			}
 			else {
 
-				KeyConditionExpression = "#hash = :hash and :rangeStart <= #range and #range < :rangeEnd";
+				KeyConditionExpression = "#hash = :hash and #range between :rangeStart and :rangeEnd";
 				ExpressionAttributeNames["#range"] = indexRangeName;
 				ExpressionAttributeValues[":rangeStart"] = indexRangeStart;
 				ExpressionAttributeValues[":rangeEnd"] = indexRangeEnd;
