@@ -1,11 +1,13 @@
 "use strict";
-const tools = require("./src/tools.js");
+const tools = require("./src/tools");
 
 module.exports = {
 	tools,
+	...require("./src/LinkedList"),
+	...require("./src/WebSocket"),
 
-	...require("./src/logging.js"),
-	tracking: require("./src/tracking.js"),
+	...require("./src/logging"),
+	tracking: require("./src/tracking"),
 	...require("./src/RepositoryGenerator"),
 
 	...require("./src/DiscoveryService"),
