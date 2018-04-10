@@ -19,5 +19,6 @@ module.exports = {
 	...require("./src/DataAccess"),
 	...require("./src/createRepository"),
 	...require("./src/validate"),
-	...require("./src/JWTService")
+	...require("./src/JWTService"),
+	...require("./src/RequestGateway")
 };
