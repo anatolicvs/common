@@ -686,6 +686,15 @@ function decryptHex(password, value) {
 	return JSON.parse(json);
 }
 
+/*******************************
+	delay
+*******************************/
+function delay(timeout) {
+
+	return new Promise((resolve, reject) => {
+		setTimeout(resolve, timeout);
+	});
+}
 
 /*******************************
 	turkishInvariant
@@ -1405,11 +1414,10 @@ function sortObject(object) {
 	return result;
 }
 
-function isBase64(value){
-	try 
-	{	
+function isBase64(value) {
+	try {
 		return btoa(atob(value)) === value;
-	} catch(err){
+	} catch (err) {
 		return false;
 	}
 }
@@ -1491,6 +1499,7 @@ module.exports = {
 	sortObject,
 	assert,
 	assertEqual,
-	
-	isBase64
+
+	isBase64,
+	delay
 };
