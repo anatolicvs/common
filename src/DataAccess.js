@@ -898,6 +898,158 @@ class DataAccess {
 		}
 	}
 
+	async removeVersioned(tableName, hashName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+
+		const hash = item[hashName];
+		const version = item[versionName];
+
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: { [hashName]: hash },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove-versioned %s(%s,%s) %d %s",
+					prefixedTableName,
+					hashName,
+					versionName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove-versioned %s(%s,%s) %s %s",
+					prefixedTableName,
+					hashName,
+					versionName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async removeRangedVersioned(tableName, hashName, rangeName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertNonEmptyString(rangeName);
+
+		const hash = item[hashName];
+		const range = item[rangeName];
+		const version = item[versionName];
+
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: { [hashName]: hash, [rangeName]: range },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove-versioned %s(%s,%s,%s) %d %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					versionName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove-versioned %s(%s,%s,%s) %s %s",
+					prefixedTableName,
+					hashName,
+					rangeName,
+					versionName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async removeCachedVersioned(tableName, hashName, rangeName, versionName, item) {
 
 		assertNonEmptyString(tableName);
@@ -1595,7 +1747,7 @@ class DataAccess {
 
 			const response = await this.ddb.get({
 				TableName: prefixedTableName,
-				Key: range === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
 				ConsistentRead: true,
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();

@@ -202,6 +202,10 @@ function createRepository(request) {
 
 				case "create-versioned":
 
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
 					prototype[methodName] = function (item) {
 
 						return this.da.createVersioned(
@@ -295,6 +299,40 @@ function createRepository(request) {
 							range
 						);
 					}
+					break;
+
+				case "remove-versioned":
+
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
+					if (rangeName === undefined) {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.removeVersioned(
+								tableName,
+								hashName,
+								versionName,
+								item
+							);
+						};
+					}
+					else {
+
+						prototype[methodName] = function (item) {
+
+							return this.da.removeRangedVersioned(
+								tableName,
+								hashName,
+								rangeName,
+								versionName,
+								item
+							);
+						};
+					}
+
 					break;
 
 				case "remove-cached-versioned":
