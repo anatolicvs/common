@@ -37,7 +37,7 @@ function createHttpServer({ api, log }) {
 		const method = request.method;
 		const url = request.url;
 
-		log.trace("%s %s %j", method, url, request.rawHeaders);
+		//log.trace("%s %s %j", method, url, request.rawHeaders);
 
 		const table = api[
 			method
