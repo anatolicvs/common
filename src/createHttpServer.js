@@ -37,7 +37,7 @@ function createHttpServer({ api, log }) {
 		const method = request.method;
 		const url = request.url;
 
-		//log.trace("%s %s %j", method, url, request.rawHeaders);
+		log.trace("%s %s %j", method, url, request.rawHeaders);
 
 		const table = api[
 			method
@@ -139,8 +139,12 @@ function createHttpServer({ api, log }) {
 				}
 				catch (error) {
 
-					log.warn(error);
+					log.warn(
+						error
+					);
+
 					response.fault("invalid-request");
+
 					return;
 				}
 
@@ -168,10 +172,17 @@ function createHttpServer({ api, log }) {
 			else {
 
 				for (const error of errors) {
-					log.warn(error);
+
+					log.warn(
+						error
+					);
 				}
 
-				response.fault("invalid-request", errors);
+				response.fault(
+					"invalid-request",
+					errors
+				);
+
 				return;
 			}
 		}

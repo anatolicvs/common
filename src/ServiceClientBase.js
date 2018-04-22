@@ -16,6 +16,7 @@ class ServiceClientBase {
 
 			let lib;
 			switch (urlInfo.protocol) {
+
 				case "http:":
 				case "ipc:":
 					lib = http;
@@ -83,8 +84,6 @@ class ServiceClientBase {
 
 			const request = lib.request(options, response => {
 
-				this.log.trace("%j %j", response.statusCode, response.rawHeaders);
-
 				const chunks = [];
 
 				response.on("data", chunk => {
@@ -96,7 +95,6 @@ class ServiceClientBase {
 
 				response.on("error", error => {
 
-					this.log.warn(error);
 					reject(
 						error
 					);
@@ -115,10 +113,11 @@ class ServiceClientBase {
 						}
 						catch (error) {
 
-							this.log.warn(error);
-							return reject(
+							reject(
 								error
 							);
+
+							return;
 						}
 					}
 
@@ -126,13 +125,15 @@ class ServiceClientBase {
 
 					switch (statusCode) {
 
-						case 200:
+						case 200: {
+
 							if (responseContent === undefined) {
 								reject(
 									new Error("service-client::empty-response")
 								);
 							}
 							else if (responseContent.code === "ok") {
+
 								resolve(
 									responseContent.data
 								);
@@ -141,16 +142,21 @@ class ServiceClientBase {
 
 								const error = new Error(responseContent.code);
 								error.data = responseContent.data;
+
 								reject(
 									error
 								);
 							}
+
 							break;
+						}
 
 						default:
+
 							reject(
 								new Error(`http-${statusCode}`)
 							);
+							break;
 					}
 				});
 			})
