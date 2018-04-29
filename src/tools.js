@@ -1,12 +1,10 @@
 "use strict";
 
 const path = require("path");
-const util = require("util");
+const { format } = require("util");
 const crypto = require("crypto");
 const uuid = require("uuid");
-const lodash = require("lodash");
 const http = require("http");
-const moment = require("moment");
 
 // http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
 const emailPattern = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
@@ -43,7 +41,7 @@ const patterns = {
 *******************************/
 String.prototype.format = function (...args) {
 
-	return util.format(this, ...args);
+	return format(this, ...args);
 };
 
 
@@ -62,18 +60,6 @@ Array.prototype.removeIf = function (cb) {
 	}
 	return removed;
 };
-
-/*******************************
-	exportAll
-*******************************/
-function exportAll(module, array) {
-
-	for (let i = 0, length = array.length; i < length; i++) {
-
-		const item = array[i];
-		module.exports[item.name] = item;
-	}
-}
 
 /*******************************
 	ts
@@ -101,7 +87,7 @@ function rng16hex() {
 	isArray
 *******************************/
 function isArray(value) {
-	return lodash.isArray(value);
+	return Array.isArray(value);
 }
 
 
@@ -109,7 +95,7 @@ function isArray(value) {
 	isFinite
 *******************************/
 function isFinite(value) {
-	return lodash.isFinite(value);
+	return Number.isFinite(value);
 };
 
 
@@ -117,7 +103,7 @@ function isFinite(value) {
 	isInteger
 *******************************/
 function isInteger(value) {
-	return lodash.isInteger(value);
+	return Number.isInteger(value);
 };
 
 
@@ -125,7 +111,27 @@ function isInteger(value) {
 	isObject
 *******************************/
 function isObject(value) {
-	return lodash.isPlainObject(value);
+
+	if (value === undefined) {
+		return false;
+	}
+
+	if (value === null) {
+		return false;
+	}
+
+	if (typeof value === "object") {
+		// ok
+	}
+	else {
+		return false;
+	}
+
+	if (Array.isArray(value)) {
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -133,7 +139,20 @@ function isObject(value) {
 	isFunction
 *******************************/
 function isFunction(value) {
-	return lodash.isFunction(value);
+
+	if (value === undefined) {
+		return false;
+	}
+
+	if (value === null) {
+		return false;
+	}
+
+	if (typeof value === "function") {
+		return true;
+	}
+
+	return false;
 }
 
 
@@ -164,7 +183,7 @@ function getId(value, name) {
 	if (name) {
 
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not an id.",
 				name,
 				value
@@ -173,7 +192,7 @@ function getId(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not an id.",
 			value
 		)
@@ -216,7 +235,7 @@ function getCode(value, name) {
 	if (name) {
 
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not a code.",
 				name,
 				value
@@ -225,7 +244,7 @@ function getCode(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not a code.",
 			value
 		)
@@ -261,7 +280,7 @@ function getString(value, name) {
 	if (name) {
 
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not a string.",
 				name,
 				value
@@ -270,11 +289,44 @@ function getString(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not a string.",
 			value
 		)
 	);
+}
+
+function ogetString(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getString(value, name);
+}
+
+function getString2(value, name) {
+
+	if (typeof value === "string") {
+
+		return value;
+	}
+
+	throw new Error(
+		format(
+			"%s is not a string.",
+			name
+		)
+	);
+}
+
+function ogetString2(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getString2(value, name);
 }
 
 function getNonEmptyString(value, name) {
@@ -289,7 +341,7 @@ function getNonEmptyString(value, name) {
 	if (name) {
 
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not a non-empty string.",
 				name,
 				value
@@ -298,9 +350,26 @@ function getNonEmptyString(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not a non-empty string.",
 			value
+		)
+	);
+}
+
+function getNonEmptyString2(value, name) {
+
+	if (typeof value === "string") {
+
+		if (0 < value.length) {
+			return value;
+		}
+	}
+
+	throw new Error(
+		format(
+			"%s is not a non-empty string.",
+			name
 		)
 	);
 }
@@ -313,7 +382,7 @@ function getInteger(value, name) {
 
 	if (name) {
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not an integer.",
 				name,
 				value
@@ -322,7 +391,7 @@ function getInteger(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not an integer.",
 			value
 		)
@@ -349,7 +418,7 @@ function getArray(value, name) {
 
 	if (name) {
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not an array.",
 				name,
 				value
@@ -358,7 +427,7 @@ function getArray(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not an array.",
 			value
 		)
@@ -379,7 +448,7 @@ function getNonEmptyArray(value, name) {
 		if (name) {
 
 			throw new Error(
-				util.format(
+				format(
 					"%s (%j) is not a non-empty array.",
 					name,
 					value
@@ -388,7 +457,7 @@ function getNonEmptyArray(value, name) {
 		}
 
 		throw new Error(
-			util.format(
+			format(
 				"(%j) is not a non-empty array.",
 				value
 			)
@@ -397,7 +466,7 @@ function getNonEmptyArray(value, name) {
 
 	if (name) {
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not a non-empty array.",
 				name,
 				value
@@ -406,7 +475,7 @@ function getNonEmptyArray(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not a non-empty array.",
 			value
 		)
@@ -421,7 +490,7 @@ function getObject(value, name) {
 
 	if (name) {
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not an object.",
 				name,
 				value
@@ -430,7 +499,7 @@ function getObject(value, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not an object.",
 			value
 		)
@@ -439,15 +508,39 @@ function getObject(value, name) {
 
 function ogetObject(value, name) {
 
-	if (value === void 0) {
+	if (value === undefined) {
 		return;
 	}
 
 	return getObject(value, name);
 }
 
+function getObject2(value, name) {
+
+	if (isObject(value)) {
+		return value;
+	}
+
+	throw new Error(
+		format(
+			"%s is not an object.",
+			name
+		)
+	);
+}
+
+function ogetObject2(value, name) {
+
+	if (value === void 0) {
+		return;
+	}
+
+	return getObject2(value, name);
+}
+
+
 /*******************************
-	asId
+	asId: move this to bmas
 *******************************/
 function asId(value) {
 
@@ -475,7 +568,7 @@ function getTrimmed(value, name) {
 
 		if (name) {
 			throw new Error(
-				util.format(
+				format(
 					"%s (%j) is not a trimmed.",
 					name,
 					value
@@ -484,7 +577,7 @@ function getTrimmed(value, name) {
 		}
 
 		throw new Error(
-			util.format(
+			format(
 				"(%j) is not a trimmed.",
 				value
 			)
@@ -541,7 +634,7 @@ function getEmail(value) {
 
 	if (name) {
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not an email.",
 				name,
 				value
@@ -550,7 +643,7 @@ function getEmail(value) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not an email.",
 			value
 		)
@@ -786,7 +879,7 @@ function createTable(array, key) {
 			console.log(JSON.stringify(array, null, "  "));
 
 			throw new Error(
-				util.format(
+				format(
 					"id (%j) is already defined.",
 					id
 				)
@@ -870,13 +963,6 @@ function differentiate(internals, internalKey, externals, externalKey, update) {
 	}
 
 	return difference;
-}
-
-/*******************************
-	renderHourOfDay
-*******************************/
-function renderHourOfDay(ts, tz) {
-	return moment(ts).utcOffset(tz).format("HH:mm");
 }
 
 /*******************************
@@ -1134,45 +1220,6 @@ function run(array, cb) {
 	return loop(0);
 }
 
-class ValidationError extends Error {
-	constructor(message) {
-		super(message);
-	}
-}
-
-ValidationError.prototype.name = "ValidationError";
-
-function validateObject(value, name) {
-
-	if (!isObject(value)) {
-		throw new ValidationError(
-			util.format("%j (%j) is not an object.", name, value)
-		);
-	}
-}
-
-function validateEmail(value, name) {
-
-	if (!isEmail(value)) {
-		throw new ValidationError(
-			util.format("%j (%j) is not an email.", name, value)
-		);
-	}
-}
-
-function validateGetTrimmed(value, name) {
-
-	const trimmed = getTrimmed(value);
-
-	if (trimmed === void 0) {
-		throw new ValidationError(
-			util.format("%s (%j) is not a trimmed.", name, value)
-		);
-	}
-
-	return trimmed;
-}
-
 function assert(value, message) {
 
 	if (value) {
@@ -1182,7 +1229,7 @@ function assert(value, message) {
 	if (message) {
 
 		throw new Error(
-			util.format(
+			format(
 				"assertion failed: %j.",
 				message
 			)
@@ -1203,7 +1250,7 @@ function assertEqual(value, expected, name) {
 	if (name) {
 
 		throw new Error(
-			util.format(
+			format(
 				"%s (%j) is not as expected (%j).",
 				name,
 				value,
@@ -1213,7 +1260,7 @@ function assertEqual(value, expected, name) {
 	}
 
 	throw new Error(
-		util.format(
+		format(
 			"(%j) is not as expected (%j).",
 			value,
 			expected
@@ -1278,7 +1325,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 	if (!isLatLng(lat1, lng1)) {
 
 		throw new Error(
-			util.format(
+			format(
 				"lat1,lng1 (%j,%j) is not valid.",
 				lat1,
 				lng1
@@ -1290,7 +1337,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 	if (!isLatLng(lat2, lng2)) {
 
 		throw new Error(
-			util.format(
+			format(
 				"lat2,lng2 (%j,%j) is not valid.",
 				lat2,
 				lng2
@@ -1321,7 +1368,7 @@ function zindex(x, y) {
 	if (!isInteger(x)) {
 
 		throw new Error(
-			util.format(
+			format(
 				"x (%j) is not an integer.",
 				x
 			)
@@ -1331,7 +1378,7 @@ function zindex(x, y) {
 	if (!isInteger(y)) {
 
 		throw new Error(
-			util.format(
+			format(
 				"y (%j) is not an integer.",
 				y
 			)
@@ -1373,7 +1420,7 @@ function tnzindex(lat, lng) {
 	if (!isLatLng(lat, lng)) {
 
 		throw new Error(
-			util.format(
+			format(
 				"lat,lng (%j,%j) is not valid.",
 				lat,
 				lng
@@ -1425,8 +1472,7 @@ function isBase64(value) {
 
 module.exports = {
 	patterns,
-	format: util.format,
-	exportAll,
+	format,
 	ts,
 	newid,
 	rng16hex,
@@ -1446,25 +1492,37 @@ module.exports = {
 	isLatLng,
 
 	getId,
+	ogetId,
+
 	getCode,
+	ogetCode,
+
 	getString,
+	ogetString,
+
 	getNonEmptyString,
+
 	getInteger,
+	ogetInteger,
+
 	getArray,
 	getNonEmptyArray,
+
 	getObject,
+	ogetObject,
 
 	getTrimmed,
 	getEmail,
 
-	ogetId,
-	ogetCode,
-	ogetInteger,
-	ogetObject,
-
 	asId,
 	asTrimmed,
 	asEmail,
+
+	getObject2,
+	ogetObject2,
+	getString2,
+	ogetString2,
+	getNonEmptyString2,
 
 	turkishInvariant,
 	htmlEscape,
@@ -1481,13 +1539,8 @@ module.exports = {
 
 	createTable,
 	differentiate,
-	renderHourOfDay,
 
 	run,
-	ValidationError,
-	validateObject,
-	validateEmail,
-	validateGetTrimmed,
 
 	EARTH_MEAN_RADIUS,
 	toDegrees,
