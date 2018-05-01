@@ -15,28 +15,25 @@ const tests = [
 	{ expression: null, expected: null },
 	{ expression: [], expected: [] },
 	{ expression: [true, false, 123, "hey", []], expected: [true, false, 123, "hey", []] },
+	{ expression: {}, expected: {} },
 
-	{ expression: {}, throws: "" },
-	{ expression: { "no-such-op": null }, throws: "" },
-	{ expression: { "no-such-op": null, "too-much-op": null }, throws: "" },
+	{ expression: { $undefined: undefined }, expected: undefined },
+	{ expression: { $undefined: null }, throws: "" },
+	{ expression: { $boolean: true }, expected: true },
+	{ expression: { $boolean: false }, expected: false },
+	{ expression: { $boolean: 123 }, throws: "" },
 
-	{ expression: { undefined: undefined }, expected: undefined },
-	{ expression: { undefined: null }, throws: "" },
-	{ expression: { boolean: true }, expected: true },
-	{ expression: { boolean: false }, expected: false },
-	{ expression: { boolean: 123 }, throws: "" },
+	{ expression: { $number: 123 }, expected: 123 },
+	{ expression: { $number: false }, throws: "" },
+	{ expression: { $string: "hey" }, expected: "hey" },
+	{ expression: { $string: 123 }, throws: "" },
+	{ expression: { $object: null }, expected: null },
+	{ expression: { $object: {} }, expected: {} },
+	{ expression: { $object: 123 }, throws: "" },
+	{ expression: { $array: [] }, expected: [] },
+	{ expression: { $array: "hey" }, throws: "" },
 
-	{ expression: { number: 123 }, expected: 123 },
-	{ expression: { number: false }, throws: "" },
-	{ expression: { string: "hey" }, expected: "hey" },
-	{ expression: { string: 123 }, throws: "" },
-	{ expression: { object: null }, expected: null },
-	{ expression: { object: {} }, expected: {} },
-	{ expression: { object: 123 }, throws: "" },
-	{ expression: { array: [] }, expected: [] },
-	{ expression: { array: "hey" }, throws: "" },
-
-	{ expression: { array: [{ array: [] }] }, expected: [[]] },
+	{ expression: { $array: [{ $array: [] }] }, expected: [[]] },
 
 	{
 		expression: () => { }, throws: ""
@@ -44,7 +41,7 @@ const tests = [
 
 	{
 		expression: {
-			object: {
+			$object: {
 				"name": "gogo"
 			}
 		}, expected: { name: "gogo" }
@@ -52,7 +49,15 @@ const tests = [
 
 	{
 		expression: {
-			object: [
+			$object: {
+				"name": "gogo"
+			}
+		}, expected: { name: "gogo" }
+	},
+
+	{
+		expression: {
+			$object: [
 				{ name: "name", value: "gogo" }
 			]
 		}, expected: { name: "gogo" }
@@ -60,7 +65,7 @@ const tests = [
 
 	{
 		expression: {
-			object: {
+			$object: {
 				"name": "gogo"
 			}
 		},
@@ -70,7 +75,7 @@ const tests = [
 
 	{
 		expression: {
-			lookup: "var1"
+			$lookup: "var1"
 		},
 		context: { "var1": 345 },
 		expected: 345
@@ -78,8 +83,8 @@ const tests = [
 
 	{
 		expression: {
-			lookup: {
-				lookup: "var2"
+			$lookup: {
+				$lookup: "var2"
 			}
 		},
 		context: { "var1": 345, "var2": "var1" },
@@ -88,9 +93,9 @@ const tests = [
 
 	{
 		expression: {
-			object: {
+			$object: {
 				"test": {
-					lookup: "var1"
+					$lookup: "var1"
 				}
 			}
 		},
@@ -102,9 +107,9 @@ const tests = [
 
 	{
 		expression: {
-			object: {
+			$object: {
 				"test": {
-					lookup: "null"
+					$lookup: "null"
 				}
 			}
 		},
@@ -114,13 +119,13 @@ const tests = [
 
 	{
 		expression: {
-			object: [
+			$object: [
 				{
 					name: {
-						lookup: "name-1"
+						$lookup: "name-1"
 					},
 					value: {
-						lookup: "null"
+						$lookup: "null"
 					}
 				}
 			]
@@ -133,13 +138,13 @@ const tests = [
 
 	{
 		expression: {
-			object: [
+			$object: [
 				{
 					name: {
-						lookup: "name-1"
+						$lookup: "name-1"
 					},
 					value: {
-						lookup: "value-1"
+						$lookup: "value-1"
 					}
 				}
 			]
@@ -155,10 +160,10 @@ const tests = [
 
 	{
 		expression: {
-			add: {
+			$add: {
 				left: 1,
 				right: {
-					"add": {
+					$add: {
 						left: 2,
 						right: 3
 					}
@@ -170,7 +175,7 @@ const tests = [
 
 	{
 		expression: {
-			concat: [
+			$concat: [
 				"hello, ",
 				"world!"
 			]
@@ -180,13 +185,46 @@ const tests = [
 
 	{
 		expression: {
-			concat: {
+			$concat: {
 				left: "hello, ",
 				right: "world!"
 			}
 		},
 		expected: "hello, world!"
-	}
+	},
+
+	{
+		expression: {
+			foo: {
+				field: 1
+			},
+			bar: {
+				field: 2
+			}
+		},
+		expected: {
+			foo: {
+				field: 1
+			},
+			bar: {
+				field: 2
+			}
+		}
+	},
+
+	{
+		expression: {
+			$object: [
+				{
+					name: "$object",
+					value: {}
+				}
+			]
+		},
+		expected: {
+			$object: {}
+		}
+	},
 ];
 
 describe("transform", () => {
