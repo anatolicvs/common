@@ -20,6 +20,7 @@ module.exports = {
 	...require("./src/DataAccess"),
 	...require("./src/createRepository"),
 	...require("./src/validate"),
+	...require("./src/transform"),
 	...require("./src/JWTService"),
 	...require("./src/RequestGateway")
 };
