@@ -1,8 +1,9 @@
 "use strict";
-const tools = require("./src/tools");
 
 module.exports = {
-	tools,
+	tools: require("./src/tools"),
+	b64u: require("./src/b64u"),
+
 	...require("./src/LinkedList"),
 	...require("./src/WebSocket"),
 

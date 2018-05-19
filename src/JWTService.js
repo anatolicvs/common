@@ -1,92 +1,13 @@
 "use strict";
-const crypto = require("crypto");
-
-function padString(s) {
-
-	switch (s.length % 4) {
-
-		case 0:
-			return s;
-
-		case 1:
-			return `${s}===`;
-
-		case 2:
-			return `${s}==`;
-
-		case 3:
-			return `${s}=`;
-	}
-}
-
-function b64Tob64u(b64) {
-	return b64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function b64uTob64(b64u) {
-
-	return padString(
-		b64u.replace(/-/g, "+").replace(/_/g, "/")
-	);
-}
-
-function bufferTob64u(buffer) {
-
-	const b64 = buffer.toString(
-		"base64"
-	);
-
-	return b64Tob64u(
-		b64
-	);
-}
-
-function objectTob64u(object) {
-
-	const json = JSON.stringify(
-		object
-	);
-
-	const buffer = Buffer.from(
-		json,
-		"utf8"
-	)
-
-	return bufferTob64u(
-		buffer
-	);
-}
-
-function b64uToBuffer(b64u) {
-
-	const b64 = b64uTob64(
-		b64u
-	);
-
-	return Buffer.from(
-		b64,
-		"base64"
-	);
-}
-
-function b64uToObject(b64u) {
-
-	const buffer = b64uToBuffer(
-		b64u
-	);
-
-	const json = buffer.toString(
-		"utf8"
-	);
-
-	return JSON.parse(
-		json
-	);
-}
+const {
+	createHmac,
+	createSign,
+	createVerify
+} = require("crypto");
 
 function hmacsha256(secret, string) {
 
-	const hmac = crypto.createHmac(
+	const hmac = createHmac(
 		"sha256",
 		secret
 	);
@@ -101,7 +22,7 @@ function hmacsha256(secret, string) {
 
 function rsasha256sign(privateKey, string) {
 
-	const sign = crypto.createSign(
+	const sign = createSign(
 		"RSA-SHA256"
 	);
 
@@ -117,7 +38,7 @@ function rsasha256sign(privateKey, string) {
 
 function rsasha256verify(publicKey, string, signature) {
 
-	const verify = crypto.createVerify(
+	const verify = createVerify(
 		"RSA-SHA256"
 	);
 
@@ -132,43 +53,58 @@ function rsasha256verify(publicKey, string, signature) {
 	);
 }
 
+const {
+	fromBuffer,
+	toBuffer,
+	fromObject,
+	toObject
+} = require("./b64u");
+
+function createHeader(algorithm, secretId, privateKeyId) {
+
+	switch (algorithm) {
+
+		case "HS256":
+
+			return {
+				alg: "HS256",
+				kid: secretId
+			};
+
+		case "RS256":
+
+			return {
+				alg: "RS256",
+				kid: privateKeyId
+			};
+
+		default:
+			throw new Error();
+	}
+}
+
 class JWTService {
 
-	createHeader(algorithm, secretId, privateKeyId) {
+	encode({
+		algorithm,
+		secretId,
+		secret,
+		privateKeyId,
+		privateKey,
+		payload
+	}) {
 
-		switch (algorithm) {
-
-			case "HS256":
-				return {
-					alg: "HS256",
-					kid: secretId
-				};
-
-			case "RS256":
-
-				return {
-					alg: "RS256",
-					kid: privateKeyId
-				};
-
-			default:
-				throw new Error();
-		}
-	}
-
-	encode({ algorithm, secretId, secret, privateKeyId, privateKey, payload }) {
-
-		const header = this.createHeader(
+		const header = createHeader(
 			algorithm,
 			secretId,
 			privateKeyId
 		);
 
-		const headerString = objectTob64u(
+		const headerString = fromObject(
 			header
 		);
 
-		const payloadString = objectTob64u(
+		const payloadString = fromObject(
 			payload
 		);
 
@@ -199,7 +135,7 @@ class JWTService {
 				throw new Error();
 		}
 
-		const signatureString = bufferTob64u(
+		const signatureString = fromBuffer(
 			signature
 		);
 
@@ -215,7 +151,11 @@ class JWTService {
 		};
 	}
 
-	decode({ token, secrets, publicKeys }) {
+	decode({
+		token,
+		secrets,
+		publicKeys
+	}) {
 
 		if (typeof token === "string") {
 			// ok
@@ -265,7 +205,7 @@ class JWTService {
 		let header;
 
 		try {
-			header = b64uToObject(
+			header = toObject(
 				headerString
 			);
 		}
@@ -275,7 +215,7 @@ class JWTService {
 
 		let payload;
 		try {
-			payload = b64uToObject(
+			payload = toObject(
 				payloadString
 			);
 		}
@@ -285,7 +225,7 @@ class JWTService {
 
 		let signature;
 		try {
-			signature = b64uToBuffer(
+			signature = toBuffer(
 				signatureString
 			);
 		}
