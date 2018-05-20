@@ -9,6 +9,8 @@ class ServiceClientBase {
 
 		return new Promise((resolve, reject) => {
 
+			const time = process.hrtime();
+
 			const url = `${this.baseUrl}${endpoint}`;
 			const urlInfo = parseUrl(
 				url
@@ -133,6 +135,15 @@ class ServiceClientBase {
 								);
 							}
 							else if (responseContent.code === "ok") {
+
+								const [s, ns] = hrtime(time);
+								const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+								this.log.trace(
+									"%s %s",
+									url,
+									elapsed
+								);
 
 								resolve(
 									responseContent.data
