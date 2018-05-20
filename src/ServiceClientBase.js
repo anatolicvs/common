@@ -3,13 +3,17 @@ const http = require("http");
 const https = require("https");
 const { parse: parseUrl } = require("url");
 
+const {
+	hrtime
+} = process;
+
 class ServiceClientBase {
 
 	post(endpoint, requestContent) {
 
 		return new Promise((resolve, reject) => {
 
-			const time = process.hrtime();
+			const time = hrtime();
 
 			const url = `${this.baseUrl}${endpoint}`;
 			const urlInfo = parseUrl(
