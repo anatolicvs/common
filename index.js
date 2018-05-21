@@ -1,8 +1,9 @@
 "use strict";
 const tools = require("./src/tools");
-
+const httpClient = require("./src/HttpClient");
 module.exports = {
 	tools,
+	httpClient,
 	...require("./src/LinkedList"),
 	...require("./src/WebSocket"),
 
