@@ -404,7 +404,11 @@ class ServiceClientBase2 {
 
 		for (const key in methods) {
 
-			ServiceClient.prototype[key] = function (principalId, request) {
+			ServiceClient.prototype[key] = function (headers, request) {
+
+				const {
+					principalId
+				} = headers;
 
 				return this.post(
 					methods[key],
