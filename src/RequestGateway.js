@@ -6,7 +6,7 @@ class RequestGateway {
 
 	async onRequest(request, response) {
 
-		const ok = data => {
+		function ok(data) {
 
 			respond(
 				"ok",
@@ -14,7 +14,7 @@ class RequestGateway {
 			);
 		};
 
-		const fault = (fault, data) => {
+		function fault(fault, data) {
 
 			respond(
 				fault,
@@ -22,7 +22,7 @@ class RequestGateway {
 			);
 		};
 
-		const respond = (code, data) => {
+		function respond(code, data) {
 
 			const payload = Buffer.from(JSON.stringify({
 				code,
@@ -32,6 +32,7 @@ class RequestGateway {
 			response.statusCode = 200;
 
 			if (cors) {
+
 				response.setHeader(
 					"Access-Control-Allow-Origin",
 					"*"
@@ -53,6 +54,83 @@ class RequestGateway {
 			);
 		}
 
+		function readRequestContent() {
+
+			return new Promise((resolve, reject) => {
+
+				const chunks = [];
+
+				request.on("data", chunk => {
+
+					chunks.push(
+						chunk
+					);
+				});
+
+				request.once("end", () => {
+
+					if (0 < chunks.length) {
+					}
+					else {
+						resolve();
+						return;
+					}
+
+					let body;
+					try {
+
+						switch (contentType) {
+
+							case "application/x-www-form-urlencoded": {
+
+								const pairs = Buffer.concat(chunks).toString("utf8").split('&');
+
+								body = {};
+
+								for (let pair of pairs) {
+
+									pair = pair.replace(/\+/g, "%20");
+
+									const index = pair.indexOf("=");
+									let key;
+									let value;
+
+									if (index < 0) {
+										key = decodeURIComponent(pair);
+										value = "";
+									}
+									else {
+										key = decodeURIComponent(pair.substr(0, index));
+										value = decodeURIComponent(pair.substr(index + 1));
+									}
+
+									body[key] = value;
+								}
+
+								break;
+							}
+
+							default:
+								body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+								break;
+						}
+					}
+					catch (error) {
+
+						reject(
+							error
+						);
+
+						return;
+					}
+
+					resolve(
+						body
+					);
+				});
+			});
+		}
+
 		// this fields
 		const {
 			log,
@@ -63,7 +141,7 @@ class RequestGateway {
 
 		// request fields
 		const {
-			method,
+			method: requestMethod,
 			url,
 			headers: {
 				"content-type": contentType
@@ -74,19 +152,20 @@ class RequestGateway {
 		// handler fields
 		let authorize;
 		let cors;
-
-		log.trace(
-			"%s %s %j",
-			method,
-			url,
-			rawHeaders
-		);
+		let requestSchema;
 
 		const table = api[
-			method
+			requestMethod
 		];
 
 		if (table === undefined) {
+
+			log.warn(
+				"%s %s %j",
+				requestMethod,
+				url,
+				rawHeaders
+			);
 
 			fault(
 				"invalid-request"
@@ -107,6 +186,13 @@ class RequestGateway {
 
 		if (handler === undefined) {
 
+			log.warn(
+				"%s %s %j",
+				requestMethod,
+				url,
+				rawHeaders
+			);
+
 			fault(
 				"invalid-request"
 			);
@@ -117,6 +203,7 @@ class RequestGateway {
 		// read handler fields
 		authorize = handler.authorize;
 		cors = handler.cors;
+		requestSchema = handler.request;
 
 		let authorizationInfo;
 		if (authorize) {
@@ -151,78 +238,14 @@ class RequestGateway {
 
 		// read any content
 
-		switch (method) {
+		let body;
+
+		switch (requestMethod) {
 
 			case "POST": {
 
-				let body;
-
 				try {
-					body = await new Promise((resolve, reject) => {
-
-						const chunks = [];
-
-						request.on("data", chunk => {
-
-							chunks.push(
-								chunk
-							);
-						});
-
-						request.on("end", () => {
-
-							if (0 < chunks.length) {
-
-								let body;
-								try {
-									switch (contentType) {
-
-										case "application/x-www-form-urlencoded": {
-											const pairs = Buffer.concat(chunks).toString("utf8").split('&');
-
-											body = {};
-
-											for (let pair of pairs) {
-
-												pair = pair.replace(/\+/g, "%20");
-
-												const index = pair.indexOf("=");
-												let key;
-												let value;
-
-												if (index < 0) {
-													key = decodeURIComponent(pair);
-													value = "";
-												}
-												else {
-													key = decodeURIComponent(pair.substr(0, index));
-													value = decodeURIComponent(pair.substr(index + 1));
-												}
-
-												body[key] = value;
-											}
-
-											break;
-										}
-
-										default:
-											body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-											break;
-									}
-								}
-								catch (error) {
-
-									reject(error);
-									return;
-								}
-
-								resolve(body);
-							}
-							else {
-								resolve();
-							}
-						});
-					});
+					body = await readRequestContent();
 				}
 				catch (error) {
 
@@ -243,14 +266,14 @@ class RequestGateway {
 
 		// validate request
 
-		if (handler.request === undefined) {
+		if (requestSchema === undefined) {
 			// ok
 		}
 		else {
 
 			const errors = validate(
-				handler.request,
-				request.body,
+				requestSchema,
+				body,
 				"body"
 			);
 
@@ -276,15 +299,18 @@ class RequestGateway {
 
 		// authorize
 
+		let principalId;
 		let claims;
 		if (authorize) {
 
+			let authorizationResult;
+
 			try {
-				claims = await authorizationService.authorize(
+				authorizationResult = await authorizationService.authorize(
 					request,
 					authorizationInfo,
 					handler.action,
-					request.body || {}
+					body || {}
 				);
 			}
 			catch (error) {
@@ -308,27 +334,70 @@ class RequestGateway {
 				return;
 			}
 
-			request.claims = claims;
+			principalId = authorizationResult.principalId;
+			claims = authorizationResult.claims;
 		}
 
-		// invoke handler
+		// invoke
 
-		const async = handler.async;
+		if (handler.handle === undefined) {
 
-		if (async === undefined) {
+			const instanceName = handler.instance;
+			const instance = instances[instanceName];
 
-			let data;
-			try {
-				data = await handler.handle(
-					request,
-					response
-				);
-			}
-			catch (error) {
+			const methodName = handler.method;
+			const async = handler.async;
 
-				log.warn(
-					error
-				);
+			const invocationHeaders = {};
+
+			if (async === undefined) {
+
+				let data;
+				try {
+					data = await instance[methodName](
+						{ principalId, claims },
+						body
+					);
+				}
+				catch (error) {
+
+					log.warn(
+						error
+					);
+
+					if (response.finished) {
+						// ok
+					}
+					else if (response.headersSent) {
+						response.end();
+					}
+					else {
+
+						let code;
+						const faults = handler.faults;
+						if (faults === undefined) {
+							code = "internal-error";
+						}
+						else {
+							const fault = faults[error.message];
+							if (fault === undefined) {
+								code = "internal-error";
+							}
+							else if (fault === null) {
+								code = error.message;
+							}
+							else {
+								code = fault;
+							}
+						}
+
+						fault(code);
+					}
+
+					return;
+				}
+
+				// check response
 
 				if (response.finished) {
 					// ok
@@ -337,6 +406,68 @@ class RequestGateway {
 					response.end();
 				}
 				else {
+
+					if (handler.response === undefined) {
+						ok(data);
+					}
+					else {
+
+						const errors = validate(
+							handler.response,
+							data,
+							"response"
+						);
+
+						if (errors === undefined) {
+							ok(data);
+						}
+						else {
+							fault("internal-error");
+						}
+					}
+				}
+			}
+			else {
+
+				if (requestService === null) {
+					throw new Error();
+				}
+
+				if (principalId === undefined) {
+					throw new Error();
+				}
+
+				const {
+					serviceId,
+					action
+				} = handler;
+
+				const {
+					requestId
+				} = await requestService.beginRequest({
+					principalId,
+					serviceId,
+					action
+				});
+
+				ok({
+					requestId
+				});
+
+				request.requestId = requestId;
+
+				let data;
+				try {
+					data = await instance[methodName](
+						{ principalId, claims, requestId },
+						body
+					);
+				}
+				catch (error) {
+
+					log.warn(
+						error
+					);
 
 					let code;
 					const faults = handler.faults;
@@ -356,135 +487,20 @@ class RequestGateway {
 						}
 					}
 
-					fault(code);
-				}
-
-				return;
-			}
-
-			// check response
-
-			if (response.finished) {
-				// ok
-			}
-			else if (response.headersSent) {
-				response.end();
-			}
-			else {
-
-				if (handler.response === undefined) {
-					ok(data);
-				}
-				else {
-
-					const errors = validate(
-						handler.response,
-						data,
-						"response"
-					);
-
-					if (errors === undefined) {
-						ok(data);
-					}
-					else {
-						fault("internal-error");
-					}
-				}
-			}
-		}
-		else {
-
-			if (requestService === null) {
-				throw new Error();
-			}
-
-			if (claims === undefined) {
-				throw new Error();
-			}
-
-			const {
-				principalId
-			} = claims;
-
-			const {
-				serviceId,
-				action
-			} = handler;
-
-			const {
-				requestId
-			} = await requestService.beginRequest({
-				principalId,
-				serviceId,
-				action
-			});
-
-			ok({
-				requestId
-			});
-
-			request.requestId = requestId;
-
-			let data;
-			try {
-				data = await handler.handle(
-					request
-				);
-			}
-			catch (error) {
-
-				log.warn(
-					error
-				);
-
-				let code;
-				const faults = handler.faults;
-				if (faults === undefined) {
-					code = "internal-error";
-				}
-				else {
-					const fault = faults[error.message];
-					if (fault === undefined) {
-						code = "internal-error";
-					}
-					else if (fault === null) {
-						code = error.message;
-					}
-					else {
-						code = fault;
-					}
-				}
-
-				await requestService.completeRequest({
-					requestId,
-					code
-				});
-
-				return;
-			}
-
-			if (data === undefined) {
-				// ok
-			}
-			else {
-
-				if (handler.response === undefined) {
-
 					await requestService.completeRequest({
 						requestId,
-						code: "ok",
-						data
+						code
 					});
+
+					return;
+				}
+
+				if (data === undefined) {
+					// ok
 				}
 				else {
 
-					const errors = validate(
-						handler.response,
-						data,
-						"response"
-					);
-
-					if (errors === undefined) {
+					if (handler.response === undefined) {
 
 						await requestService.completeRequest({
 							requestId,
@@ -494,28 +510,219 @@ class RequestGateway {
 					}
 					else {
 
-						await requestService.completeRequest({
-							requestId,
-							code: "internal-error"
-						});
+						const errors = validate(
+							handler.response,
+							data,
+							"response"
+						);
+
+						if (errors === undefined) {
+
+							await requestService.completeRequest({
+								requestId,
+								code: "ok",
+								data
+							});
+						}
+						else {
+
+							await requestService.completeRequest({
+								requestId,
+								code: "internal-error"
+							});
+						}
 					}
 				}
 			}
+
 		}
-	}
+		else {
 
-	async drain() {
+			const async = handler.async;
 
-		switch (this.state) {
+			if (async === undefined) {
 
-			case null:
-				break;
+				let data;
+				try {
+					data = await handler.handle(
+						request,
+						response
+					);
+				}
+				catch (error) {
 
-			case "draining":
-				break;
+					log.warn(
+						error
+					);
 
-			default:
-				throw new Error();
+					if (response.finished) {
+						// ok
+					}
+					else if (response.headersSent) {
+						response.end();
+					}
+					else {
+
+						let code;
+						const faults = handler.faults;
+						if (faults === undefined) {
+							code = "internal-error";
+						}
+						else {
+							const fault = faults[error.message];
+							if (fault === undefined) {
+								code = "internal-error";
+							}
+							else if (fault === null) {
+								code = error.message;
+							}
+							else {
+								code = fault;
+							}
+						}
+
+						fault(code);
+					}
+
+					return;
+				}
+
+				// check response
+
+				if (response.finished) {
+					// ok
+				}
+				else if (response.headersSent) {
+					response.end();
+				}
+				else {
+
+					if (handler.response === undefined) {
+						ok(data);
+					}
+					else {
+
+						const errors = validate(
+							handler.response,
+							data,
+							"response"
+						);
+
+						if (errors === undefined) {
+							ok(data);
+						}
+						else {
+							fault("internal-error");
+						}
+					}
+				}
+			}
+			else {
+
+				if (requestService === null) {
+					throw new Error();
+				}
+
+				if (principalId === undefined) {
+					throw new Error();
+				}
+
+				const {
+					serviceId,
+					action
+				} = handler;
+
+				const {
+					requestId
+				} = await requestService.beginRequest({
+					principalId,
+					serviceId,
+					action
+				});
+
+				ok({
+					requestId
+				});
+
+				request.requestId = requestId;
+
+				let data;
+				try {
+					data = await handler.handle(
+						request
+					);
+				}
+				catch (error) {
+
+					log.warn(
+						error
+					);
+
+					let code;
+					const faults = handler.faults;
+					if (faults === undefined) {
+						code = "internal-error";
+					}
+					else {
+						const fault = faults[error.message];
+						if (fault === undefined) {
+							code = "internal-error";
+						}
+						else if (fault === null) {
+							code = error.message;
+						}
+						else {
+							code = fault;
+						}
+					}
+
+					await requestService.completeRequest({
+						requestId,
+						code
+					});
+
+					return;
+				}
+
+				if (data === undefined) {
+					// ok
+				}
+				else {
+
+					if (handler.response === undefined) {
+
+						await requestService.completeRequest({
+							requestId,
+							code: "ok",
+							data
+						});
+					}
+					else {
+
+						const errors = validate(
+							handler.response,
+							data,
+							"response"
+						);
+
+						if (errors === undefined) {
+
+							await requestService.completeRequest({
+								requestId,
+								code: "ok",
+								data
+							});
+						}
+						else {
+
+							await requestService.completeRequest({
+								requestId,
+								code: "internal-error"
+							});
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -524,7 +731,7 @@ RequestGateway.prototype.log = null;
 RequestGateway.prototype.api = null;
 RequestGateway.prototype.authorizationService = null;
 RequestGateway.prototype.requestService = null;
-RequestGateway.prototype.state = null;
+RequestGateway.prototype.instances = null;
 
 module.exports = {
 	RequestGateway
