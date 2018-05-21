@@ -66,7 +66,6 @@ class RequestGateway {
 			method,
 			url,
 			headers: {
-				"authorization": authorization,
 				"content-type": contentType
 			},
 			rawHeaders
@@ -119,21 +118,12 @@ class RequestGateway {
 		authorize = handler.authorize;
 		cors = handler.cors;
 
-		let token;
+		let authorizationInfo;
 		if (authorize) {
 
-			if (authorization === undefined) {
-
-				fault(
-					"not-authorized"
-				);
-
-				return;
-			}
-
 			try {
-				token = await authorizationService.extract(
-					authorization
+				authorizationInfo = await authorizationService.extract(
+					request
 				);
 			}
 			catch (error) {
@@ -291,7 +281,8 @@ class RequestGateway {
 
 			try {
 				claims = await authorizationService.authorize(
-					token,
+					request,
+					authorizationInfo,
 					handler.action,
 					request.body || {}
 				);
