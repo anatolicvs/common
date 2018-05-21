@@ -282,15 +282,17 @@ class ServiceClientBase2 {
 					throw new Error();
 			}
 
+			options.headers = {
+				"x-fiyuu-principal": principalId
+			};
+
 			if (payload === undefined) {
 				// ok
 			}
 			else {
 
-				options.headers = {
-					"Content-Type": "application/json; charset=utf-8",
-					"Content-Length": `${payload.length}`
-				};
+				options.headers["Content-Type"] = "application/json; charset=utf-8";
+				options.headers["Content-Length"] = `${payload.length}`;
 			}
 
 			const request = lib.request(options, response => {
