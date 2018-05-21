@@ -58,14 +58,6 @@ class HttpClient {
 
                 response.once("end", () => {
 
-                    // if (response.statusCode === 200) {
-                    // 	// ok
-                    // }
-                    // else {
-                    // 	reject(new Error(`http-${response.statusCode}`));
-                    // 	return;
-                    // }
-
                     if (0 < chunks.length) {
 
                         const responseContent = JSON.parse(Buffer.concat(chunks).toString("utf8"));
