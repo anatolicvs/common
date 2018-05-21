@@ -21,7 +21,7 @@ class RepositoryGenerator {
 
 		for (const name in methods) {
 
-			const methodName = tools.validateGetTrimmed(name, "methodName");
+			const methodName = tools.getTrimmed(name, "methodName");
 
 			let method = methods[name];
 			if (typeof method === "string") {
@@ -46,13 +46,13 @@ class RepositoryGenerator {
 				}
 			}
 
-			const methodType = tools.validateGetTrimmed(method.type, "method.type");
+			const methodType = tools.getTrimmed(method.type, "method.type");
 
 			switch (methodType) {
 
 				case "create": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateCreate(lines, tableName, table, methodName, method);
@@ -61,7 +61,7 @@ class RepositoryGenerator {
 
 				case "update": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateUpdate(lines, tableName, table, methodName, method);
@@ -70,7 +70,7 @@ class RepositoryGenerator {
 
 				case "update-versioned": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateUpdateVersioned(lines, tableName, table, methodName, method);
@@ -79,7 +79,11 @@ class RepositoryGenerator {
 
 				case "put": {
 
+<<<<<<< HEAD
 					const tableName = tools. (method.table, "method.table");
+=======
+					const tableName = tools.getTrimmed(method.table, "method.table");
+>>>>>>> 057088a193ab739d926c0745d781ba10a5fa307a
 					const table = request.tables[tableName];
 
 					this.generatePut(lines, tableName, table, methodName, method);
@@ -88,7 +92,7 @@ class RepositoryGenerator {
 
 				case "delete": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateDelete(lines, tableName, table, methodName, method);
@@ -97,7 +101,7 @@ class RepositoryGenerator {
 
 				case "remove": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateRemove(lines, tableName, table, methodName, method);
@@ -106,7 +110,7 @@ class RepositoryGenerator {
 
 				case "get": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateGet(lines, tableName, table, methodName, method);
@@ -115,7 +119,7 @@ class RepositoryGenerator {
 
 				case "get-consistent": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateGetConsistent(lines, tableName, table, methodName, method);
@@ -124,7 +128,7 @@ class RepositoryGenerator {
 
 				case "get-cached": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					needsRedis = true;
@@ -135,7 +139,7 @@ class RepositoryGenerator {
 
 				case "scan-first": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.scanFirst(lines, tableName, table, methodName, method);
@@ -144,7 +148,7 @@ class RepositoryGenerator {
 
 				case "scan": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateScan(lines, tableName, table, methodName, method);
@@ -153,7 +157,7 @@ class RepositoryGenerator {
 
 				case "scan-cached": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					needsRedis = true;
@@ -164,7 +168,7 @@ class RepositoryGenerator {
 
 				case "query-table": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateQueryTable(lines, tableName, table, methodName, method);
@@ -173,7 +177,7 @@ class RepositoryGenerator {
 
 				case "query-table-cached": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					needsRedis = true;
@@ -184,8 +188,8 @@ class RepositoryGenerator {
 
 				case "query-index": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
-					const indexName = tools.validateGetTrimmed(method.index, "method.index");
+					const tableName = tools.getTrimmed(method.table, "method.table");
+					const indexName = tools.getTrimmed(method.index, "method.index");
 					const table = request.tables[tableName];
 					const index = table.indices[indexName];
 
@@ -195,8 +199,8 @@ class RepositoryGenerator {
 
 				case "query-index-first": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
-					const indexName = tools.validateGetTrimmed(method.index, "method.index");
+					const tableName = tools.getTrimmed(method.table, "method.table");
+					const indexName = tools.getTrimmed(method.index, "method.index");
 					const table = request.tables[tableName];
 					const index = table.indices[indexName];
 
@@ -206,8 +210,8 @@ class RepositoryGenerator {
 
 				case "query-index-cached": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
-					const indexName = tools.validateGetTrimmed(method.index, "method.index");
+					const tableName = tools.getTrimmed(method.table, "method.table");
+					const indexName = tools.getTrimmed(method.index, "method.index");
 					const table = request.tables[tableName];
 					const index = table.indices[indexName];
 
@@ -219,7 +223,7 @@ class RepositoryGenerator {
 
 				case "create-or-get": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateCreateOrGet(lines, tableName, table, methodName, method);
@@ -228,7 +232,7 @@ class RepositoryGenerator {
 
 				case "get-or-create": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateGetOrCreate(lines, tableName, table, methodName, method);
@@ -237,7 +241,7 @@ class RepositoryGenerator {
 
 				case "enumerate-table": {
 
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateEnumerateTable(lines, tableName, table, methodName, method);
@@ -245,7 +249,7 @@ class RepositoryGenerator {
 				}
 
 				case "batch-get": {
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateBatchGet(lines, tableName, table, methodName, method);
@@ -253,7 +257,7 @@ class RepositoryGenerator {
 				}
 
 				case "batch-get-cached": {
-					const tableName = tools.validateGetTrimmed(method.table, "method.table");
+					const tableName = tools.getTrimmed(method.table, "method.table");
 					const table = request.tables[tableName];
 
 					this.generateBatchGetCached(lines, tableName, table, methodName, method);
@@ -1044,7 +1048,7 @@ class RepositoryGenerator {
 
 		this.log.trace("generating query-index...");
 
-		const hash = tools.validateGetTrimmed(index.hash, "index.hash");
+		const hash = tools.getTrimmed(index.hash, "index.hash");
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -1082,7 +1086,7 @@ class RepositoryGenerator {
 
 		this.log.trace("generating query-index-first...");
 
-		const hash = tools.validateGetTrimmed(index.hash, "index.hash");
+		const hash = tools.getTrimmed(index.hash, "index.hash");
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -1136,7 +1140,7 @@ class RepositoryGenerator {
 		const tableRange = tools.asTrimmed(table.range);
 
 		// get index hash
-		const indexHash = tools.validateGetTrimmed(index.hash, "index.hash");
+		const indexHash = tools.getTrimmed(index.hash, "index.hash");
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 

@@ -3,11 +3,17 @@ const http = require("http");
 const https = require("https");
 const { parse: parseUrl } = require("url");
 
+const {
+	hrtime
+} = process;
+
 class ServiceClientBase {
 
 	post(endpoint, requestContent) {
 
 		return new Promise((resolve, reject) => {
+
+			const time = hrtime();
 
 			const url = `${this.baseUrl}${endpoint}`;
 			const urlInfo = parseUrl(
@@ -133,6 +139,15 @@ class ServiceClientBase {
 								);
 							}
 							else if (responseContent.code === "ok") {
+
+								const [s, ns] = hrtime(time);
+								const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+								this.log.trace(
+									"%s %s",
+									url,
+									elapsed
+								);
 
 								resolve(
 									responseContent.data

@@ -10,7 +10,7 @@ function transform(expression, context) {
 		if (expression === undefined) {
 
 			/*
-				typeof undefined is undefined.
+				typeof undefined is "undefined".
 			*/
 			return undefined;
 		}
@@ -18,7 +18,7 @@ function transform(expression, context) {
 		if (expression === null) {
 
 			/*
-				typeof null is object.
+				typeof null is "object".
 			*/
 			return null;
 		}
@@ -43,47 +43,55 @@ function transform(expression, context) {
 					);
 				}
 
-				let type;
+				let first;
+				let count = 0;
 				for (const key in expression) {
 
-					if (type === undefined) {
-						type = key;
+					count++;
+
+					if (first === undefined) {
+						first = key;
 					}
 					else {
-						throw new Error();
+						break;
 					}
 				}
 
-				if (type === undefined) {
-					throw new Error();
+				if (count === 1) {
+
+					const handlers = {
+						"$undefined": evaluateUndefinedExpression,
+						"$boolean": evaluateBooleanExpression,
+						"$number": evaluateNumberExpression,
+						"$string": evaluateStringExpression,
+						"$array": evaluateArrayExpression,
+						"$object": evaluateObjectExpression,
+						"$lookup": evaluateLookupExpression,
+						"$concat": evaluateConcatExpression,
+						"$add": evaulateAddExpression
+					};
+
+					const handler = handlers[
+						first
+					];
+
+					if (handler === undefined) {
+						// ok
+					}
+					else {
+
+						const content = expression[
+							first
+						];
+
+						return handler(
+							content
+						);
+					}
 				}
 
-				const content = expression[
-					type
-				];
-
-				const handlers = {
-					"undefined": evaluateUndefinedExpression,
-					"boolean": evaluateBooleanExpression,
-					"number": evaluateNumberExpression,
-					"string": evaluateStringExpression,
-					"array": evaluateArrayExpression,
-					"object": evaluateObjectExpression,
-					"lookup": evaluateLookupExpression,
-					"concat": evaluateConcatExpression,
-					"add": evaulateAddExpression
-				};
-
-				const handler = handlers[
-					type
-				];
-
-				if (handler === undefined) {
-					throw new Error();
-				}
-
-				return handler(
-					content
+				return evaluateObjectLiteral(
+					expression
 				);
 			}
 
@@ -156,6 +164,27 @@ function transform(expression, context) {
 					item
 				)
 			);
+		}
+
+		return result;
+	}
+
+	function evaluateObjectLiteral(literal) {
+
+		const result = {};
+
+		for (const name in literal) {
+
+			const value = evaluate(
+				literal[name]
+			);
+
+			if (value === undefined) {
+				// ok
+			}
+			else {
+				result[name] = value;
+			}
 		}
 
 		return result;

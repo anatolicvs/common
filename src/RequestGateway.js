@@ -318,18 +318,56 @@ class RequestGateway {
 
 		// invoke handler
 
-		let data;
-		try {
-			data = await handler.handle(
-				request,
-				response
-			);
-		}
-		catch (error) {
+		const decoupling = handler.decoupling;
 
-			log.warn(
-				error
-			);
+		if (this.requestService === null || decoupling === undefined) {
+
+			let data;
+			try {
+				data = await handler.handle(
+					request,
+					response
+				);
+			}
+			catch (error) {
+
+				log.warn(
+					error
+				);
+
+				if (response.finished) {
+					// ok
+				}
+				else if (response.headersSent) {
+					response.end();
+				}
+				else {
+
+					let code;
+					const faults = handler.faults;
+					if (faults === undefined) {
+						code = "internal-error";
+					}
+					else {
+						const fault = faults[error.message];
+						if (fault === undefined) {
+							code = "internal-error";
+						}
+						else if (fault === null) {
+							code = error.message;
+						}
+						else {
+							code = fault;
+						}
+					}
+
+					fault(code);
+				}
+
+				return;
+			}
+
+			// check response
 
 			if (response.finished) {
 				// ok
@@ -338,6 +376,65 @@ class RequestGateway {
 				response.end();
 			}
 			else {
+
+				if (handler.response === undefined) {
+					ok(data);
+				}
+				else {
+
+					const errors = validate(
+						handler.response,
+						data,
+						"response"
+					);
+
+					if (errors === undefined) {
+						ok(data);
+					}
+					else {
+						fault("internal-error");
+					}
+				}
+			}
+		}
+		else {
+
+			if (claims === undefined) {
+				throw new Error();
+			}
+
+			const {
+				principalId
+			} = claims;
+
+			const {
+				serviceId,
+				action
+			} = decoupling;
+
+			const {
+				requestId
+			} = await this.requestService.beginRequest({
+				principalId,
+				serviceId,
+				action
+			});
+
+			ok({
+				requestId
+			});
+
+			let data;
+			try {
+				data = await handler.handle(
+					request
+				);
+			}
+			catch (error) {
+
+				log.warn(
+					error
+				);
 
 				let code;
 				const faults = handler.faults;
@@ -357,24 +454,22 @@ class RequestGateway {
 					}
 				}
 
-				fault(code);
+				await this.requestService.completeRequest({
+					requestId,
+					code
+				});
+
+				return;
 			}
 
-			return;
-		}
-
-		// check response
-
-		if (response.finished) {
-			// ok
-		}
-		else if (response.headersSent) {
-			response.end();
-		}
-		else {
-
 			if (handler.response === undefined) {
-				ok(data);
+
+				await this.requestService.completeRequest({
+					requestId,
+					code: "ok",
+					data
+				});
+
 			}
 			else {
 
@@ -385,10 +480,20 @@ class RequestGateway {
 				);
 
 				if (errors === undefined) {
-					ok(data);
+
+					await this.requestService.completeRequest({
+						requestId,
+						code: "ok",
+						data
+					});
+
 				}
 				else {
-					fault("internal-error");
+
+					await this.requestService.completeRequest({
+						requestId,
+						code: "internal-error"
+					});
 				}
 			}
 		}
@@ -413,6 +518,7 @@ class RequestGateway {
 RequestGateway.prototype.log = null;
 RequestGateway.prototype.api = null;
 RequestGateway.prototype.authorizationService = null;
+RequestGateway.prototype.requestService = null;
 RequestGateway.prototype.state = null;
 
 module.exports = {
