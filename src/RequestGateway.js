@@ -56,7 +56,9 @@ class RequestGateway {
 		// this fields
 		const {
 			log,
-			api
+			api,
+			authorizationService,
+			requestService
 		} = this;
 
 		// request fields
@@ -130,7 +132,7 @@ class RequestGateway {
 			}
 
 			try {
-				token = await this.authorizationService.extract(
+				token = await authorizationService.extract(
 					authorization
 				);
 			}
@@ -288,7 +290,7 @@ class RequestGateway {
 		if (authorize) {
 
 			try {
-				claims = await this.authorizationService.authorize(
+				claims = await authorizationService.authorize(
 					token,
 					handler.action,
 					request.body || {}
@@ -314,13 +316,15 @@ class RequestGateway {
 
 				return;
 			}
+
+			request.claims = claims;
 		}
 
 		// invoke handler
 
-		const decoupling = handler.decoupling;
+		const async = handler.async;
 
-		if (this.requestService === null || decoupling === undefined) {
+		if (async === undefined) {
 
 			let data;
 			try {
@@ -399,6 +403,10 @@ class RequestGateway {
 		}
 		else {
 
+			if (requestService === null) {
+				throw new Error();
+			}
+
 			if (claims === undefined) {
 				throw new Error();
 			}
@@ -410,11 +418,11 @@ class RequestGateway {
 			const {
 				serviceId,
 				action
-			} = decoupling;
+			} = handler;
 
 			const {
 				requestId
-			} = await this.requestService.beginRequest({
+			} = await requestService.beginRequest({
 				principalId,
 				serviceId,
 				action
@@ -423,6 +431,8 @@ class RequestGateway {
 			ok({
 				requestId
 			});
+
+			request.requestId = requestId;
 
 			let data;
 			try {
@@ -454,7 +464,7 @@ class RequestGateway {
 					}
 				}
 
-				await this.requestService.completeRequest({
+				await requestService.completeRequest({
 					requestId,
 					code
 				});
@@ -462,38 +472,42 @@ class RequestGateway {
 				return;
 			}
 
-			if (handler.response === undefined) {
-
-				await this.requestService.completeRequest({
-					requestId,
-					code: "ok",
-					data
-				});
-
+			if (data === undefined) {
+				// ok
 			}
 			else {
 
-				const errors = validate(
-					handler.response,
-					data,
-					"response"
-				);
+				if (handler.response === undefined) {
 
-				if (errors === undefined) {
-
-					await this.requestService.completeRequest({
+					await requestService.completeRequest({
 						requestId,
 						code: "ok",
 						data
 					});
-
 				}
 				else {
 
-					await this.requestService.completeRequest({
-						requestId,
-						code: "internal-error"
-					});
+					const errors = validate(
+						handler.response,
+						data,
+						"response"
+					);
+
+					if (errors === undefined) {
+
+						await requestService.completeRequest({
+							requestId,
+							code: "ok",
+							data
+						});
+					}
+					else {
+
+						await requestService.completeRequest({
+							requestId,
+							code: "internal-error"
+						});
+					}
 				}
 			}
 		}

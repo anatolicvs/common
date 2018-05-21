@@ -1,4 +1,7 @@
+"use strict";
+
 class HttpClient {
+
     request(method, path, requestContent) {
 
         return new Promise((resolve, reject) => {
@@ -114,4 +117,5 @@ HttpClient.prototype.baseUrl = null;
 
 module.exports = {
     HttpClient
-}
+};
+

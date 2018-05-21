@@ -79,11 +79,7 @@ class RepositoryGenerator {
 
 				case "put": {
 
-<<<<<<< HEAD
-					const tableName = tools. (method.table, "method.table");
-=======
 					const tableName = tools.getTrimmed(method.table, "method.table");
->>>>>>> 057088a193ab739d926c0745d781ba10a5fa307a
 					const table = request.tables[tableName];
 
 					this.generatePut(lines, tableName, table, methodName, method);
