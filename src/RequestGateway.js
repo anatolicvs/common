@@ -136,7 +136,8 @@ class RequestGateway {
 			log,
 			api,
 			authorizationService,
-			requestService
+			requestService,
+			instances
 		} = this;
 
 		// request fields
