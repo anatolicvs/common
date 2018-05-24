@@ -310,6 +310,7 @@ class RequestGateway {
 				authorizationResult = await authorizationService.authorize(
 					request,
 					authorizationInfo,
+					handler.serviceId,
 					handler.action,
 					body || {}
 				);

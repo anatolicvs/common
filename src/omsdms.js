@@ -107,7 +107,7 @@ class AuthorizationService {
 		}
 	}
 
-	async authorize(request, authorizationInfo, action, resource) {
+	async authorize(request, authorizationInfo, serviceId, action, resource) {
 
 		const {
 			type,
@@ -251,6 +251,7 @@ function stopHttpServer(log, server, port) {
 						switch (error.code) {
 
 							case "ENOENT":
+								resolve();
 								break;
 
 							default:
