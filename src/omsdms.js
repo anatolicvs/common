@@ -27,6 +27,9 @@ const {
 
 const b64u = require("./b64u");
 
+const {
+	DataAccess
+} = require("./DataAccess");
 const RequestServiceClient = ServiceClientBase.create({
 	beginRequest: "/begin-request",
 	completeRequest: "/complete-request"
@@ -646,7 +649,7 @@ function hostService({
 	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
 
 	const service = createService({
-		log: createLog("service"),
+		createLog,
 		da
 	});
 
