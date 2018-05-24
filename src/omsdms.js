@@ -249,13 +249,18 @@ function stopHttpServer(log, server, port) {
 					if (error) {
 
 						switch (error.code) {
+
 							case "ENOENT":
 								break;
 
 							default:
+								log.warn(error);
 								reject(error);
 								break;
 						}
+					}
+					else {
+						resolve();
 					}
 				});
 			}
