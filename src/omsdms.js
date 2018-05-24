@@ -10,7 +10,7 @@ const {
 
 const {
 	createRedisConnection
-} = require("./createHttpServer");
+} = require("./createRedisConnection");
 
 const {
 	JWTService
