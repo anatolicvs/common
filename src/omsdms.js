@@ -361,7 +361,7 @@ function hostAPI({
 		return log;
 	}
 
-	const log = createLog("host");
+	const log = createLog(`host[${name}]`);
 
 	log.trace(
 		"create redis appender..."
