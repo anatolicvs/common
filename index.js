@@ -3,6 +3,7 @@
 module.exports = {
 	tools: require("./src/tools"),
 	b64u: require("./src/b64u"),
+	omsdms: require("./src/omsdms"),
 	...require("./src/HttpClient"),
 	...require("./src/LinkedList"),
 	...require("./src/WebSocket"),
