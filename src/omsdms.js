@@ -325,10 +325,29 @@ function hostAPI({
 
 	const simpleLogService = new SimpleLogService();
 
-	const stdoutAppender = new StdoutAppender();
-	simpleLogService.appenders.push(
-		stdoutAppender
-	);
+	if (Array.isArray(config.appenders)) {
+
+		for (const appender of config.appenders) {
+
+			if (appender.type === "stdout") {
+
+				const stdoutAppender = new StdoutAppender();
+				if (typeof appender.max === "number") {
+
+					if (Number.isNaN(appender.max)) {
+						// ok		
+					}
+					else {
+						stdoutAppender.max = appender.max;
+					}
+				}
+
+				simpleLogService.appenders.push(
+					stdoutAppender
+				);
+			}
+		}
+	}
 
 	function createLog(category) {
 
@@ -532,6 +551,281 @@ function hostAPI({
 	});
 }
 
+function hostService({
+	name,
+	configs,
+	api,
+	createService
+}) {
+
+	const env = process.env.FIYUU_ENV;
+	if (env === undefined) {
+		throw new Error("define FIYUU_ENV!");
+	}
+
+	const config = configs[env];
+	if (config === undefined) {
+		throw new Error("config not found.");
+	}
+
+	if (process.env.PORT) {
+		config.port = process.env.PORT;
+	}
+
+	const simpleLogService = new SimpleLogService();
+
+	if (Array.isArray(config.appenders)) {
+
+		for (const appender of config.appenders) {
+
+			if (appender.type === "stdout") {
+
+				const stdoutAppender = new StdoutAppender();
+				if (typeof appender.max === "number") {
+
+					if (Number.isNaN(appender.max)) {
+						// ok		
+					}
+					else {
+						stdoutAppender.max = appender.max;
+					}
+				}
+
+				simpleLogService.appenders.push(
+					stdoutAppender
+				);
+			}
+		}
+	}
+
+	function createLog(category) {
+
+		const log = new Log();
+		log.service = simpleLogService;
+		log.category = category;
+
+		return log;
+	}
+
+	const log = createLog("host");
+
+	log.trace(
+		"require aws-sdk..."
+	);
+
+	const aws = require("aws-sdk");
+
+	log.trace(
+		"configure aws-sdk..."
+	);
+
+	aws.config.update({
+		region: "eu-west-1"
+	});
+
+	const ddb = new aws.DynamoDB.DocumentClient(
+		config.ddbOptions
+	);
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = "livelog";
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
+
+	const da = new DataAccess();
+	da.log = createLog("da");
+	da.tableNamePrefix = config.tableNamePrefix;
+	da.ddb = ddb;
+
+	const requestServiceClient = new RequestServiceClient();
+	requestServiceClient.log = createLog("request-service-client");
+	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
+
+	const service = createService({
+		log: createLog("service"),
+		da
+	});
+
+	for (const key in config.service) {
+
+		const value = config.service[key];
+
+		if (service[key] === undefined) {
+			throw new Error();
+		}
+
+		service[key] = value;
+	}
+
+	const httpapi = {
+
+		GET: {
+
+			"/": {
+				handle(request, response) {
+					response.statusCode = 200;
+					response.end();
+				}
+			},
+
+			"/health-check": {
+				handle(request, response) {
+					response.statusCode = 200;
+					response.end();
+				}
+			}
+		},
+		POST: {
+			...api.endpoints
+		},
+		OPTIONS: {
+		}
+	};
+
+	const requestGateway = new RequestGateway();
+	requestGateway.log = createLog("request-gateway");
+	requestGateway.api = httpapi;
+	requestGateway.authorizationService = {
+
+		extract(request) {
+
+			const principalId = request.headers["x-fiyuu-principal"];
+
+			return {
+				principalId
+			};
+		},
+
+		authorize(request, authorizationInfo, serviceId, action, resource) {
+
+			const {
+				principalId
+			} = authorizationInfo;
+
+			return {
+				principalId
+			};
+		}
+	};
+
+	requestGateway.requestService = requestServiceClient;
+	requestGateway.instances = {
+		service
+	};
+
+	const requestGatewayOnRequest = requestGateway.onRequest.bind(
+		requestGateway
+	);
+
+	const server = http.createServer();
+
+	server.on(
+		"request",
+		requestGatewayOnRequest
+	);
+
+	let cacheRedis = null;
+	let publishRedis = null;
+
+	process.on("unhandledRejection", error => {
+		log.error("unhandled rejection:", error);
+	});
+
+	let socketCount = 0;
+
+	async function start() {
+
+		cacheRedis = createRedisConnection(
+			config.redisOptions,
+			createLog("cache-redis")
+		);
+
+		publishRedis = createRedisConnection(
+			config.redisOptions,
+			createLog("publish-redis")
+		);
+
+		da.redis = cacheRedis;
+		redisAppender.redis = publishRedis;
+
+		server.on("connection", socket => {
+
+			log.trace(
+				"new connection"
+			);
+
+			socketCount++;
+
+			socket.once("close", hadError => {
+
+				log.trace(
+					"connection closed."
+				);
+
+				socketCount--;
+			});
+		});
+
+		server.on(
+			"request",
+			requestGatewayOnRequest
+		);
+
+		await startHttpServer(log, server, config.port);
+
+
+		process.once("SIGTERM", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("exit...");
+				process.exit(0);
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+
+		// nodemon restart handler
+		process.once("SIGUSR2", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("kill...");
+				process.kill(process.pid, "SIGUSR2");
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+	}
+
+
+	async function stop() {
+
+		// close listener
+		await stopHttpServer(log, server, config.port);
+
+		await publishRedis.quitAsync();
+		await cacheRedis.quitAsync();
+	}
+
+	start().catch(error => {
+
+		console.log(error);
+	});
+}
+
 module.exports = {
 	RequestServiceClient,
 	AccessServiceClient,
@@ -539,5 +833,6 @@ module.exports = {
 	AuthorizationService,
 	startHttpServer,
 	stopHttpServer,
-	hostAPI
+	hostAPI,
+	hostService
 };
