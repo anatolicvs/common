@@ -726,11 +726,6 @@ function hostService({
 
 	const server = http.createServer();
 
-	server.on(
-		"request",
-		requestGatewayOnRequest
-	);
-
 	let cacheRedis = null;
 	let publishRedis = null;
 
@@ -773,7 +768,7 @@ function hostService({
 			});
 		});
 
-		server.on(
+		server.addListener(
 			"request",
 			requestGatewayOnRequest
 		);
@@ -818,6 +813,11 @@ function hostService({
 
 		// close listener
 		await stopHttpServer(log, server, config.port);
+
+		server.removeListener(
+			"request",
+			requestGatewayOnRequest
+		);
 
 		await publishRedis.quitAsync();
 		await cacheRedis.quitAsync();
