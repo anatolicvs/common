@@ -227,14 +227,12 @@ function startHttpServer(log, server, port) {
 	});
 }
 
-function stopHttpServer(log, server) {
+function stopHttpServer(log, server, port) {
 
 	return new Promise((resolve, reject) => {
 
-		const server = this.instances.server;
 		server.once("close", () => {
 
-			const port = this.config.port;
 			const iport = Number.parseInt(port);
 
 			if (isNaN(iport)) {
