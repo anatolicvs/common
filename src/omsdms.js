@@ -119,9 +119,9 @@ class AuthorizationService {
 			case "jwt": {
 
 				try {
-					return await this.accessService.authorizeToken({ principalId: this.serviceId }, {
+					return await this.accessService.authorizeToken({ principalId: serviceId }, {
 						token,
-						serviceId: this.serviceId,
+						serviceId,
 						action,
 						resource
 					});
@@ -146,9 +146,9 @@ class AuthorizationService {
 
 				try {
 
-					return await this.accessService.authorizeAPIKey({ principalId: this.serviceId }, {
+					return await this.accessService.authorizeAPIKey({ principalId: serviceId }, {
 						key: token,
-						serviceId: this.serviceId,
+						serviceId,
 						action,
 						resource
 					});
@@ -175,7 +175,6 @@ class AuthorizationService {
 	}
 }
 
-AuthorizationService.prototype.serviceId = null;
 AuthorizationService.prototype.jwtService = null;
 AuthorizationService.prototype.accessService = null;
 AuthorizationService.prototype.publicKeys = null;
