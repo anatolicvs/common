@@ -1,6 +1,30 @@
 "use strict";
 const fs = require("fs");
-const { ServiceClientBase, ServiceClientBase2 } = require("./ServiceClientBase");
+const http = require("http");
+// const aws = require("aws-sdk");
+
+const tools = require("./tools");
+const {
+	SimpleLogService, StdoutAppender, RedisAppender, Log
+} = require("./logging");
+
+const {
+	createRedisConnection
+} = require("./createHttpServer");
+
+const {
+	JWTService
+} = require("./JWTService");
+
+const {
+	ServiceClientBase,
+	ServiceClientBase2,
+} = require("./ServiceClientBase");
+
+const {
+	RequestGateway,
+} = require("./RequestGateway");
+
 const b64u = require("./b64u");
 
 const RequestServiceClient = ServiceClientBase.create({
@@ -68,8 +92,6 @@ class AuthorizationService {
 		const type = authorizationMatch[1];
 		const token = authorizationMatch[2];
 
-		console.log(type, token);
-
 		switch (type) {
 
 			case "jwt":
@@ -93,6 +115,10 @@ class AuthorizationService {
 				};
 
 			case "key": {
+
+				this.log.trace(
+					"extract key..."
+				);
 
 				const keyBuffer = b64u.toBuffer(token);
 
@@ -144,6 +170,10 @@ class AuthorizationService {
 
 			case "key": {
 
+				this.log.trace(
+					"authorize key..."
+				);
+
 				try {
 
 					return await this.accessService.authorizeAPIKey({ principalId: serviceId }, {
@@ -175,6 +205,7 @@ class AuthorizationService {
 	}
 }
 
+AuthorizationService.prototype.log = null;
 AuthorizationService.prototype.jwtService = null;
 AuthorizationService.prototype.accessService = null;
 AuthorizationService.prototype.publicKeys = null;
@@ -271,11 +302,242 @@ function stopHttpServer(log, server, port) {
 
 }
 
+function hostAPI({
+	name,
+	configs,
+	api,
+	Service
+}) {
+
+	const env = process.env.FIYUU_ENV;
+	if (env === undefined) {
+		throw new Error("define FIYUU_ENV!");
+	}
+
+	const config = configs[env];
+	if (config === undefined) {
+		throw new Error("config not found.");
+	}
+
+	if (process.env.PORT) {
+		config.port = process.env.PORT;
+	}
+
+	const simpleLogService = new SimpleLogService();
+
+	const stdoutAppender = new StdoutAppender();
+	simpleLogService.appenders.push(
+		stdoutAppender
+	);
+
+	function createLog(category) {
+
+		const log = new Log();
+		log.service = simpleLogService;
+		log.category = category;
+
+		return log;
+	}
+
+	const log = createLog("host");
+
+	log.trace(
+		"create redis appender..."
+	);
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = "livelog";
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
+
+	const accessServiceClient = new AccessServiceClient();
+	accessServiceClient.log = createLog("access-service-client");
+	accessServiceClient.baseUrl = config.accessServiceBaseUrl;
+
+	const service = new Service();
+	service.log = createLog("service");
+
+	for (const key in config.service) {
+
+		const value = config.service[key];
+
+		if (service[key] === undefined) {
+			throw new Error();
+		}
+
+		service[key] = value;
+	}
+	// service.baseUrl = config.serviceBaseUrl;
+
+	const httpapi = {
+
+		GET: {
+
+			"/": {
+				handle(request, response) {
+					response.statusCode = 200;
+					response.end();
+				}
+			},
+
+			"/health-check": {
+				handle(request, response) {
+					response.statusCode = 200;
+					response.end();
+				}
+			}
+		},
+		POST: {
+			...api.endpoints
+		},
+		OPTIONS: {
+		}
+	};
+
+	for (const path in httpapi.POST) {
+
+		httpapi.OPTIONS[path] = {
+			handle: cors
+		};
+	}
+
+	function cors(request, response) {
+
+		response.statusCode = 200;
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Methods", "OPTIONS, POST");
+		response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+
+		response.end();
+	};
+
+	const jwtService = new JWTService();
+
+	const authorizationService = new AuthorizationService();
+	authorizationService.log = createLog("authorization");
+	authorizationService.jwtService = jwtService;
+	authorizationService.accessService = accessServiceClient;
+	authorizationService.publicKeys = {
+		"key-1": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtHJJqTPTTm8U56NFbwfo\nCqoIAwCSzvJn9tipY8klvGQENp2g1Drs600PSNiDrzOWBY/ahGFQixmbuBeHSO2P\nsdgdGs0ChKNBBC2Ow5GzSaDHC6OZbGDlPHvtnFkJL2WUm4ZcsO0wnllQaCq66loM\nVBXEAsY8fYdf+kNkmfa3lJ6ybJ1mJw7cryiupqZ/8Tl+N4MZruc4f7RlXfH4ogew\nvxIeGlbBqWgUV8K4nsLDvT348mWCnozPDZFc1Xhfj/8YpX2spfbuy/wr1nU+HYUS\n3K2dYgpMY+eo2nxJRoKQPg6Z+BrUaxY2mlq0QEHwKAo1cMGX+gtKWKeBn6ECOYrS\nzQIDAQAB\n-----END PUBLIC KEY-----"
+	};
+
+	const requestGateway = new RequestGateway();
+	requestGateway.log = createLog("request-gateway");
+	requestGateway.api = httpapi;
+	requestGateway.authorizationService = authorizationService;
+	requestGateway.instances = {
+		service
+	};
+
+	const requestGatewayOnRequest = requestGateway.onRequest.bind(
+		requestGateway
+	);
+
+	const server = http.createServer();
+
+	let publishRedis = null;
+
+	process.on("unhandledRejection", error => {
+		log.error("unhandled rejection:", error);
+	});
+
+	let socketCount = 0;
+
+	async function start() {
+
+		publishRedis = createRedisConnection(
+			config.redisOptions,
+			createLog("publish-redis")
+		);
+
+		redisAppender.redis = publishRedis;
+		// const aws = require("aws-sdk");
+
+		// aws.config.update({
+		// 	region: "eu-west-1"
+		// });
+
+		server.on("connection", socket => {
+
+			log.trace(
+				"new connection"
+			);
+
+			socketCount++;
+
+			socket.once("close", hadError => {
+
+				log.trace(
+					"connection closed."
+				);
+
+				socketCount--;
+			});
+		});
+
+		server.on(
+			"request",
+			requestGatewayOnRequest
+		);
+
+		await startHttpServer(log, server, config.port);
+
+
+		process.once("SIGTERM", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("exit...");
+				process.exit(0);
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+
+		// nodemon restart handler
+		process.once("SIGUSR2", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("kill...");
+				process.kill(process.pid, "SIGUSR2");
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+	}
+
+
+	async function stop() {
+
+		// close listener
+		await stopHttpServer(log, server, config.port);
+	}
+
+	start().catch(error => {
+
+		console.log(error);
+	});
+}
+
 module.exports = {
 	RequestServiceClient,
 	AccessServiceClient,
 	ProductServiceClient,
 	AuthorizationService,
 	startHttpServer,
-	stopHttpServer
+	stopHttpServer,
+	hostAPI
 };
