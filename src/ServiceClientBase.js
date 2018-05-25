@@ -77,15 +77,22 @@ class ServiceClientBase {
 					throw new Error();
 			}
 
+			options.headers = {};
+
+			if (this.authorization === null) {
+				// ok
+			}
+			else {
+				options.headers["Authorization"] = this.authorization;
+			}
+
 			if (payload === undefined) {
 				// ok
 			}
 			else {
 
-				options.headers = {
-					"Content-Type": "application/json; charset=utf-8",
-					"Content-Length": `${payload.length}`
-				};
+				options.headers["Content-Type"] = "application/json; charset=utf-8";
+				options.headers["Content-Length"] = `${payload.length}`;
 			}
 
 			const request = lib.request(options, response => {
@@ -211,6 +218,7 @@ class ServiceClientBase {
 
 ServiceClientBase.prototype.log = null;
 ServiceClientBase.prototype.baseUrl = null;
+ServiceClientBase.prototype.authorization = null;
 
 class ServiceClientBase2 {
 
@@ -285,6 +293,13 @@ class ServiceClientBase2 {
 			options.headers = {
 				"x-fiyuu-principal": principalId
 			};
+
+			if (this.authorization === null) {
+				// ok
+			}
+			else {
+				options.headers["Authorization"] = this.authorization;
+			}
 
 			if (payload === undefined) {
 				// ok
