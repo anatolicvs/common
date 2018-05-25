@@ -294,12 +294,12 @@ class ServiceClientBase2 {
 				"x-fiyuu-principal": principalId
 			};
 
-			if (this.authorization === null) {
-				// ok
-			}
-			else {
-				options.headers["Authorization"] = this.authorization;
-			}
+			// if (this.authorization === null) {
+			// 	// ok
+			// }
+			// else {
+			// 	options.headers["Authorization"] = this.authorization;
+			// }
 
 			if (payload === undefined) {
 				// ok
