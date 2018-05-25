@@ -213,215 +213,6 @@ AuthorizationService.prototype.jwtService = null;
 AuthorizationService.prototype.accessService = null;
 AuthorizationService.prototype.publicKeys = null;
 
-class Worker {
-
-	async run() {
-
-		for (; ;) {
-
-			let receiveMessageResponse;
-
-			const receiveMessageRequest = this.sqs.receiveMessage({
-				QueueUrl: this.queueUrl,
-				MaxNumberOfMessages: 1,
-				WaitTimeSeconds: 10
-			});
-
-			this.receiveMessageRequest = receiveMessageRequest;
-
-			try {
-
-				try {
-					receiveMessageResponse = await receiveMessageRequest.promise();
-				}
-				finally {
-					this.receiveMessageRequest = null;
-				}
-			}
-			catch (error) {
-
-				console.log("cannot receive message:", error);
-
-				await tools.delay(30 * 1000);
-				continue;
-			}
-
-			if (tools.isObject(receiveMessageResponse)) {
-				// ok
-			}
-			else {
-
-				console.log("receiveMessageResponse is not an object.");
-				continue;
-			}
-
-			const messages = receiveMessageResponse.Messages;
-			if (messages === undefined) {
-				continue;
-			}
-
-			if (tools.isArray(messages)) {
-				// ok
-			}
-			else {
-
-				console.log("messages is not an array.");
-				continue;
-			}
-
-			if (0 < messages.length) {
-				// ok
-			}
-			else {
-
-				console.log(
-					"messages.length is not greater than 0."
-				);
-
-				continue;
-			}
-
-			const message = messages[0];
-
-			if (tools.isObject(message)) {
-				// ok
-			}
-			else {
-
-				console.log(
-					"message is not an object."
-				);
-
-				continue;
-			}
-
-			const body = message.Body;
-
-			if (tools.isString(body)) {
-				// ok
-			}
-			else {
-
-				console.log(
-					"body is not a string."
-				);
-
-				continue;
-			}
-
-			let item;
-
-			try {
-				item = JSON.parse(
-					body
-				);
-			}
-			catch (error) {
-
-				console.log(
-					"cannot parse body:",
-					error
-				);
-
-				continue;
-			}
-
-			if (tools.isObject(item)) {
-				// ok
-			}
-			else {
-
-				console.log(
-					"item is not an object."
-				);
-
-				continue;
-			}
-
-			const {
-				type,
-				content
-			} = item;
-
-			if (tools.isString(type)) {
-				// ok
-			}
-			else {
-
-				console.log(
-					"type is not a string."
-				);
-
-				continue;
-			}
-
-			const handler = this.api[type];
-
-			if (handler === undefined) {
-
-				console.log(
-					"handler is undefined."
-				);
-
-				continue;
-			}
-
-			try {
-
-				await handler.handle(
-					content
-				);
-			}
-			catch (error) {
-
-				switch (error.message) {
-					case "processor::invalid-message":
-						break;
-				}
-
-				console.log(error);
-				continue;
-			}
-
-			this.deleteMessage(
-				message.ReceiptHandle
-			);
-		}
-	}
-
-	async deleteMessage(receiptHandle) {
-
-		for (let i = 0; i < 10; i++) {
-
-			try {
-				await this.sqs.deleteMessage({
-					QueueUrl: this.queueUrl,
-					ReceiptHandle: receiptHandle
-				}).promise();
-			}
-			catch (error) {
-
-				console.log(
-					"cannot delete message:",
-					error
-				);
-
-				await tools.delay(1 * 1000);
-				continue;
-			}
-
-			break;
-		}
-	}
-}
-
-Worker.prototype.log = null;
-Worker.prototype.sqs = null;
-Worker.prototype.queueUrl = null;
-Worker.prototype.receiveMessageRequest = null;
-Worker.prototype.api = null;
-
-
 function startHttpServer(log, server, port) {
 
 	return new Promise((resolve, reject) => {
@@ -1043,6 +834,398 @@ function hostService({
 	});
 }
 
+
+class Worker {
+
+	async run() {
+
+		for (; ;) {
+
+			let receiveMessageResponse;
+
+			const receiveMessageRequest = this.sqs.receiveMessage({
+				QueueUrl: this.queueUrl,
+				MaxNumberOfMessages: 1,
+				WaitTimeSeconds: 10
+			});
+
+			this.receiveMessageRequest = receiveMessageRequest;
+
+			try {
+
+				try {
+					receiveMessageResponse = await receiveMessageRequest.promise();
+				}
+				finally {
+					this.receiveMessageRequest = null;
+				}
+			}
+			catch (error) {
+
+				this.log.warn("cannot receive message:", error);
+
+				await tools.delay(30 * 1000);
+				continue;
+			}
+
+			if (tools.isObject(receiveMessageResponse)) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"receiveMessageResponse is not an object."
+				);
+				continue;
+			}
+
+			const messages = receiveMessageResponse.Messages;
+			if (messages === undefined) {
+				continue;
+			}
+
+			if (tools.isArray(messages)) {
+				// ok
+			}
+			else {
+
+				this.log.warn("messages is not an array.");
+				continue;
+			}
+
+			if (0 < messages.length) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"messages.length is not greater than 0."
+				);
+
+				continue;
+			}
+
+			this.log.trace(
+				"received %d message(s).",
+				messages.length
+			);
+
+			const message = messages[0];
+
+			await this.processMessage(
+				message
+			);
+		}
+	}
+
+	async processMessage(message) {
+
+		try {
+
+			if (tools.isObject(message)) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"message is not an object."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			const {
+				MessageId: messageId,
+				Body: body
+			} = message;
+
+			if (tools.isString(body)) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"body is not a string."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			let item;
+
+			try {
+				item = JSON.parse(
+					body
+				);
+			}
+			catch (error) {
+
+				this.log.warn(
+					"cannot parse body:",
+					error
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			if (tools.isObject(item)) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"item is not an object."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			const {
+				type,
+				headers,
+				content
+			} = item;
+
+			if (tools.isString(type)) {
+				// ok
+			}
+			else {
+
+				this.log.warn(
+					"type is not a string."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			this.log.debug(
+				"type is %s",
+				type
+			);
+
+			const handler = this.api[type];
+
+			if (handler === undefined) {
+
+				this.log.warn(
+					"handler is undefined."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+			let principalId;
+			let requestId;
+
+			if (headers === undefined) {
+				// ok
+			}
+			else if (tools.isObject(headers)) {
+
+				principalId = headers.principalId;
+				if (principalId === undefined) {
+					// ok
+				}
+				else if (tools.isCode(principalId)) {
+					// ok
+				}
+				else {
+
+					this.log.warn(
+						"principalId is not a code."
+					);
+
+					throw new Error("invalid-message");
+				}
+
+				requestId = headers.requestId;
+				if (requestId === undefined) {
+					// ok
+				}
+				else if (tools.isCode(requestId)) {
+
+					if (principalId === undefined) {
+
+						this.log.warn(
+							"principalId is required for requests."
+						);
+
+						throw new Error("invalid-message");
+					}
+				}
+				else {
+
+					this.log.warn(
+						"requestId is not a code."
+					);
+
+					throw new Error("invalid-message");
+				}
+
+			}
+			else {
+
+				this.log.warn(
+					"headers is not an object."
+				);
+
+				throw new Error("invalid-message");
+			}
+
+
+			if (requestId === undefined) {
+
+				const instanceName = handler.instance;
+				const methodName = handler.method;
+
+				const instance = this.instances[instanceName];
+
+				this.log.trace(
+					"process one-way message %j...",
+					messageId
+				);
+
+				try {
+
+					await instance[methodName](
+						content,
+						headers
+					);
+				}
+				catch (error) {
+
+					if (handler.faults && handler.faults[error.message] === null) {
+
+						this.log.warn(
+							"message is reported as invalid."
+						);
+
+						throw new Error("invalid-message");
+					}
+					else {
+
+						this.log.warn(error);
+					}
+				}
+			}
+			else {
+
+				const instanceName = handler.instance;
+				const methodName = handler.method;
+
+				const instance = this.instances[instanceName];
+
+				this.log.trace(
+					"process request message %j...",
+					messageId
+				);
+
+				let data;
+				try {
+
+					data = await instance[methodName](
+						content,
+						headers
+					);
+				}
+				catch (error) {
+
+					if (handler.faults && handler.faults[error.message] === null) {
+
+						this.log.warn(
+							"message is reported as invalid."
+						);
+
+						await this.requestService.completeRequest({
+							requestId,
+							code: error.message
+						});
+
+						throw new Error("invalid-message");
+					}
+					else {
+
+						this.log.warn(error);
+
+						throw new Error("retry");
+					}
+
+				}
+
+				await this.requestService.completeRequest({
+					requestId,
+					code: "ok",
+					data
+				});
+			}
+		}
+		catch (error) {
+
+			switch (error.message) {
+
+				case "invalid-message":
+					break;
+
+				case "retry":
+					return;
+
+				default:
+					this.log.error(error);
+					return;
+			}
+		}
+
+		await this.deleteMessage(
+			message
+		);
+	}
+
+	async deleteMessage(message) {
+
+		const {
+			MessageId: messageId,
+			ReceiptHandle: receiptHandle
+		} = message;
+
+		for (let i = 0; i < 10; i++) {
+
+			console.log(
+				"delete message %j...",
+				messageId
+			);
+
+			try {
+				await this.sqs.deleteMessage({
+					QueueUrl: this.queueUrl,
+					ReceiptHandle: receiptHandle
+				}).promise();
+			}
+			catch (error) {
+
+				console.log(
+					"cannot delete message:",
+					error
+				);
+
+				await tools.delay(1 * 1000);
+				continue;
+			}
+
+			break;
+		}
+	}
+}
+
+Worker.prototype.log = null;
+Worker.prototype.sqs = null;
+Worker.prototype.sns = null;
+Worker.prototype.queueUrl = null;
+Worker.prototype.receiveMessageRequest = null;
+Worker.prototype.api = null;
+Worker.prototype.requestService = null;
+Worker.prototype.instances = null;
+
+
 function hostWorker({
 	name,
 	configs,
@@ -1123,6 +1306,7 @@ function hostWorker({
 		config.sqsOptions
 	);
 
+	const sns = new aws.SNS();
 	const redisAppender = new RedisAppender();
 	redisAppender.app = name;
 	redisAppender.env = env;
@@ -1161,11 +1345,24 @@ function hostWorker({
 		log.error("unhandled rejection:", error);
 	});
 
+	const requestServiceClient = new RequestServiceClient();
+	requestServiceClient.log = createLog("request-service-client");
+	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
+
+	const workerapi = {
+		...api.endpoints
+	};
+
 	const worker = new Worker();
 	worker.log = createLog("worker");
 	worker.sqs = sqs;
+	worker.sns = sns;
 	worker.queueUrl = config.queue;
-	worker.api = api;
+	worker.api = workerapi;
+	worker.requestService = requestServiceClient;
+	worker.instances = {
+		service
+	};
 
 	async function start() {
 
@@ -1239,5 +1436,6 @@ module.exports = {
 	stopHttpServer,
 	hostAPI,
 	hostService,
+	hostWorker,
 	Worker
 };
