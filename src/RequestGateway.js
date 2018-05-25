@@ -223,7 +223,7 @@ class RequestGateway {
 					default:
 
 						log.error(
-							error.message
+							error
 						);
 
 						break;
@@ -323,7 +323,7 @@ class RequestGateway {
 
 					default:
 						log.error(
-							error.message
+							error
 						);
 
 						break;
