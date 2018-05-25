@@ -1088,8 +1088,8 @@ class Worker {
 				try {
 
 					await instance[methodName](
-						content,
-						headers
+						{ principalId, requestId },
+						content
 					);
 				}
 				catch (error) {
@@ -1124,8 +1124,8 @@ class Worker {
 				try {
 
 					data = await instance[methodName](
-						content,
-						headers
+						{ principalId, requestId },
+						content
 					);
 				}
 				catch (error) {
