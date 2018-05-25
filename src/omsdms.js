@@ -213,6 +213,215 @@ AuthorizationService.prototype.jwtService = null;
 AuthorizationService.prototype.accessService = null;
 AuthorizationService.prototype.publicKeys = null;
 
+class Worker {
+
+	async run() {
+
+		for (; ;) {
+
+			let receiveMessageResponse;
+
+			const receiveMessageRequest = this.sqs.receiveMessage({
+				QueueUrl: this.queueUrl,
+				MaxNumberOfMessages: 1,
+				WaitTimeSeconds: 10
+			});
+
+			this.receiveMessageRequest = receiveMessageRequest;
+
+			try {
+
+				try {
+					receiveMessageResponse = await receiveMessageRequest.promise();
+				}
+				finally {
+					this.receiveMessageRequest = null;
+				}
+			}
+			catch (error) {
+
+				console.log("cannot receive message:", error);
+
+				await tools.delay(30 * 1000);
+				continue;
+			}
+
+			if (tools.isObject(receiveMessageResponse)) {
+				// ok
+			}
+			else {
+
+				console.log("receiveMessageResponse is not an object.");
+				continue;
+			}
+
+			const messages = receiveMessageResponse.Messages;
+			if (messages === undefined) {
+				continue;
+			}
+
+			if (tools.isArray(messages)) {
+				// ok
+			}
+			else {
+
+				console.log("messages is not an array.");
+				continue;
+			}
+
+			if (0 < messages.length) {
+				// ok
+			}
+			else {
+
+				console.log(
+					"messages.length is not greater than 0."
+				);
+
+				continue;
+			}
+
+			const message = messages[0];
+
+			if (tools.isObject(message)) {
+				// ok
+			}
+			else {
+
+				console.log(
+					"message is not an object."
+				);
+
+				continue;
+			}
+
+			const body = message.Body;
+
+			if (tools.isString(body)) {
+				// ok
+			}
+			else {
+
+				console.log(
+					"body is not a string."
+				);
+
+				continue;
+			}
+
+			let item;
+
+			try {
+				item = JSON.parse(
+					body
+				);
+			}
+			catch (error) {
+
+				console.log(
+					"cannot parse body:",
+					error
+				);
+
+				continue;
+			}
+
+			if (tools.isObject(item)) {
+				// ok
+			}
+			else {
+
+				console.log(
+					"item is not an object."
+				);
+
+				continue;
+			}
+
+			const {
+				type,
+				content
+			} = item;
+
+			if (tools.isString(type)) {
+				// ok
+			}
+			else {
+
+				console.log(
+					"type is not a string."
+				);
+
+				continue;
+			}
+
+			const handler = this.api[type];
+
+			if (handler === undefined) {
+
+				console.log(
+					"handler is undefined."
+				);
+
+				continue;
+			}
+
+			try {
+
+				await handler.handle(
+					content
+				);
+			}
+			catch (error) {
+
+				switch (error.message) {
+					case "processor::invalid-message":
+						break;
+				}
+
+				console.log(error);
+				continue;
+			}
+
+			this.deleteMessage(
+				message.ReceiptHandle
+			);
+		}
+	}
+
+	async deleteMessage(receiptHandle) {
+
+		for (let i = 0; i < 10; i++) {
+
+			try {
+				await this.sqs.deleteMessage({
+					QueueUrl: this.queueUrl,
+					ReceiptHandle: receiptHandle
+				}).promise();
+			}
+			catch (error) {
+
+				console.log(
+					"cannot delete message:",
+					error
+				);
+
+				await tools.delay(1 * 1000);
+				continue;
+			}
+
+			break;
+		}
+	}
+}
+
+Worker.prototype.log = null;
+Worker.prototype.sqs = null;
+Worker.prototype.queueUrl = null;
+Worker.prototype.receiveMessageRequest = null;
+Worker.prototype.api = null;
+
+
 function startHttpServer(log, server, port) {
 
 	return new Promise((resolve, reject) => {
@@ -630,6 +839,10 @@ function hostService({
 		config.ddbOptions
 	);
 
+	const sqs = new aws.DynamoDB.DocumentClient(
+		config.sqsOptions
+	);
+
 	const redisAppender = new RedisAppender();
 	redisAppender.app = name;
 	redisAppender.env = env;
@@ -650,7 +863,8 @@ function hostService({
 
 	const service = createService({
 		createLog,
-		da
+		da,
+		sqs
 	});
 
 	for (const key in config.service) {
@@ -829,6 +1043,193 @@ function hostService({
 	});
 }
 
+function hostWorker({
+	name,
+	configs,
+	api,
+	createService
+}) {
+
+	const env = process.env.FIYUU_ENV;
+	if (env === undefined) {
+		throw new Error("define FIYUU_ENV!");
+	}
+
+	const config = configs[env];
+	if (config === undefined) {
+		throw new Error("config not found.");
+	}
+
+	if (process.env.PORT) {
+		config.port = process.env.PORT;
+	}
+
+	const simpleLogService = new SimpleLogService();
+
+	if (Array.isArray(config.appenders)) {
+
+		for (const appender of config.appenders) {
+
+			if (appender.type === "stdout") {
+
+				const stdoutAppender = new StdoutAppender();
+				if (typeof appender.max === "number") {
+
+					if (Number.isNaN(appender.max)) {
+						// ok		
+					}
+					else {
+						stdoutAppender.max = appender.max;
+					}
+				}
+
+				simpleLogService.appenders.push(
+					stdoutAppender
+				);
+			}
+		}
+	}
+
+	function createLog(category) {
+
+		const log = new Log();
+		log.service = simpleLogService;
+		log.category = category;
+
+		return log;
+	}
+
+	const log = createLog("host");
+
+	log.trace(
+		"require aws-sdk..."
+	);
+
+	const aws = require("aws-sdk");
+
+	log.trace(
+		"configure aws-sdk..."
+	);
+
+	aws.config.update({
+		region: "eu-west-1"
+	});
+
+	const ddb = new aws.DynamoDB.DocumentClient(
+		config.ddbOptions
+	);
+
+	const sqs = new aws.SQS(
+		config.sqsOptions
+	);
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = "livelog";
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
+
+	const da = new DataAccess();
+	da.log = createLog("da");
+	da.tableNamePrefix = config.tableNamePrefix;
+	da.ddb = ddb;
+
+	const service = createService({
+		createLog,
+		da,
+		sqs
+	});
+
+	for (const key in config.service) {
+
+		const value = config.service[key];
+
+		if (service[key] === undefined) {
+			throw new Error();
+		}
+
+		service[key] = value;
+	}
+
+	let cacheRedis = null;
+	let publishRedis = null;
+
+	process.on("unhandledRejection", error => {
+		log.error("unhandled rejection:", error);
+	});
+
+	const worker = new Worker();
+	worker.log = createLog("worker");
+	worker.sqs = sqs;
+	worker.queueUrl = config.queue;
+	worker.api = api;
+
+	async function start() {
+
+		cacheRedis = createRedisConnection(
+			config.redisOptions,
+			createLog("cache-redis")
+		);
+
+		publishRedis = createRedisConnection(
+			config.redisOptions,
+			createLog("publish-redis")
+		);
+
+		da.redis = cacheRedis;
+		redisAppender.redis = publishRedis;
+
+		process.once("SIGTERM", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("exit...");
+				process.exit(0);
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+
+		// nodemon restart handler
+		process.once("SIGUSR2", async () => {
+
+			try {
+				log.trace("stop...");
+				await stop();
+
+				log.trace("kill...");
+				process.kill(process.pid, "SIGUSR2");
+			}
+			catch (error) {
+
+				console.log(error);
+			}
+		});
+
+		worker.run();
+	}
+
+	async function stop() {
+
+		// stop worker
+
+		await publishRedis.quitAsync();
+		await cacheRedis.quitAsync();
+	}
+
+	start().catch(error => {
+
+		console.log(error);
+	});
+}
+
 module.exports = {
 	RequestServiceClient,
 	AccessServiceClient,
@@ -837,5 +1238,6 @@ module.exports = {
 	startHttpServer,
 	stopHttpServer,
 	hostAPI,
-	hostService
+	hostService,
+	Worker
 };

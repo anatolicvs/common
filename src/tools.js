@@ -89,15 +89,40 @@ function rng16hex() {
 	isArray
 *******************************/
 function isArray(value) {
-	return Array.isArray(value);
+
+	if (Array.isArray(value)) {
+
+		return true;
+	}
+
+	return false;
 }
 
+
+function isNonEmptyArray(value) {
+
+	if (Array.isArray(value)) {
+
+		if (0 < value.length) {
+
+			return true;
+		}
+	}
+
+	return false;
+}
 
 /*******************************
 	isFinite
 *******************************/
 function isFinite(value) {
-	return Number.isFinite(value);
+
+	if (Number.isFinite(value)) {
+
+		return true;
+	}
+
+	return false;
 };
 
 
@@ -105,7 +130,13 @@ function isFinite(value) {
 	isInteger
 *******************************/
 function isInteger(value) {
-	return Number.isInteger(value);
+
+	if (Number.isInteger(value)) {
+
+		return true;
+	}
+
+	return false;
 };
 
 
@@ -115,10 +146,12 @@ function isInteger(value) {
 function isObject(value) {
 
 	if (value === undefined) {
+
 		return false;
 	}
 
 	if (value === null) {
+
 		return false;
 	}
 
@@ -130,6 +163,7 @@ function isObject(value) {
 	}
 
 	if (Array.isArray(value)) {
+
 		return false;
 	}
 
@@ -1469,6 +1503,64 @@ function isBase64(value) {
 	} catch (err) {
 		return false;
 	}
+}
+
+function validateObject(value) {
+
+	if (isObject(value)) {
+		return value;
+	}
+
+	throw new Error("invalid-request");
+}
+
+function validateCode(value) {
+
+	if (isCode(value)) {
+		return value;
+	}
+
+	throw new Error("invalid-request");
+}
+
+function validateString(value) {
+
+	if (isString(value)) {
+		return value;
+	}
+
+	throw new Error("invalid-request");
+}
+
+function validateInteger(value) {
+
+	if (isInteger(value)) {
+		return value;
+	}
+
+	throw new Error("invalid-request");
+}
+
+function validateArray(value) {
+
+	if (tisArray(value)) {
+
+		return value;
+	}
+
+	throw new Error("invalid-request");
+}
+
+function validateNonEmptyArray(value) {
+
+	if (isArray(value)) {
+
+		if (0 < value.length) {
+			return value;
+		}
+	}
+
+	throw new Error("invalid-request");
 }
 
 

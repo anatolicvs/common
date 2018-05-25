@@ -456,8 +456,6 @@ class RequestGateway {
 					requestId
 				});
 
-				request.requestId = requestId;
-
 				let data;
 				try {
 					data = await instance[methodName](
