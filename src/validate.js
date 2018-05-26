@@ -5,6 +5,8 @@ const { isInteger, isFinite } = Number;
 
 const regexpCache = {};
 
+const coderegex = /^(?=.{1,1024}$)([0-9a-zçğıöşü]+([-_.][0-9a-zçğıöşü]+)*)$/;
+
 function validate(schema, instance, name) {
 
 	const queue = [];
@@ -208,6 +210,71 @@ function validate(schema, instance, name) {
 		}
 	}
 
+	function validateTrimmed(instance, name) {
+
+		if (typeof instance === "string") {
+
+			if (0 < instance.length) {
+
+				const trimmed = instance.trim();
+
+				if (0 < trimmed.length) {
+					// ok
+				}
+				else {
+
+					report(
+						"%s (%j) is not a trimmed.",
+						name,
+						instance
+					);
+				}
+			}
+			else {
+
+				report(
+					"%s (%j) is not a trimmed.",
+					name,
+					instance
+				);
+			}
+		}
+		else {
+
+			report(
+				"%s (%j) is not a trimmed.",
+				name,
+				instance
+			);
+		}
+	}
+
+	function validateCode(instance, name) {
+
+		if (typeof instance === "string") {
+
+			if (coderegex.test(value)) {
+				// ok
+			}
+			else {
+
+				report(
+					"%s (%j) is not a code.",
+					name,
+					instance
+				);
+			}
+		}
+		else {
+
+			report(
+				"%s (%j) is not a trimmed.",
+				name,
+				instance
+			);
+		}
+	}
+
 	function validateNumber(instance, name) {
 
 		if (typeof instance === "number") {
@@ -395,6 +462,14 @@ function validate(schema, instance, name) {
 
 				case "string":
 					validateString(instance, name);
+					break;
+
+				case "trimmed":
+					validateTrimmed(instance, name);
+					break;
+
+				case "code":
+					validateCode(instance, name);
 					break;
 
 				case "number":
