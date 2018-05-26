@@ -9,6 +9,8 @@ const http = require("http");
 // http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
 const emailPattern = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 
+const trimmedregex = /^\S+($|[\s\S]*\S$)/;
+
 /*******************************
 	patterns
 *******************************/
@@ -639,6 +641,33 @@ function asTrimmed(value) {
 	}
 }
 
+function getTrimmedString(value, name) {
+
+	if (typeof value === "string") {
+
+		if (trimmedregex.test(value)) {
+
+			return value;
+		}
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j) is not a trimmed.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j) is not a trimmed.",
+			value
+		)
+	);
+}
 
 /*******************************
 	isEmail
