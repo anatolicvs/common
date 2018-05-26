@@ -1073,6 +1073,42 @@ class Worker {
 			}
 
 
+			if (handler.request === undefined) {
+				// ok
+			}
+			else {
+
+				const errors = validate(
+					handler.request,
+					content,
+					"content"
+				);
+
+				if (errors === undefined) {
+					// ok
+				}
+				else {
+
+					for (const error of errors) {
+						this.log.warn(
+							error
+						);
+					}
+
+					if (requestId === undefined) {
+
+					}
+					else {
+						await this.requestService.completeRequest({
+							requestId,
+							code: "invalid-request"
+						});
+					}
+
+					throw new Error("invalid-message");
+				}
+			}
+
 			if (requestId === undefined) {
 
 				const instanceName = handler.instance;
