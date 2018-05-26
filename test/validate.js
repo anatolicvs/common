@@ -4,7 +4,49 @@ const { validate } = require("../src/validate");
 
 const scenarios = [
 	{ schema: "integer", instance: 1 },
+	{ schema: "finite", instance: 1.1 },
+	{ schema: "number", instance: 1 },
 	{ schema: "number", instance: 1.1 },
+
+	{ schema: "number", instance: Infinity },
+	{ schema: "finite", instance: Infinity, response: ["$ (null) is not a finite."] },
+	{ schema: "integer", instance: Infinity, response: ["$ (null) is not an integer."] },
+
+	{ schema: "code", instance: "abc" },
+	{ schema: "code", instance: "abc-def" },
+	{ schema: "code", instance: "abc-def.xyz-123" },
+	{ schema: "code", instance: "abc-de_f.xyz-1_23" },
+
+	{ schema: "trimmed", instance: "a" },
+	{ schema: "trimmed", instance: "aa" },
+	{ schema: "trimmed", instance: "aaa" },
+	{ schema: "trimmed", instance: "a a" },
+	{ schema: "trimmed", instance: "aa a" },
+	{ schema: "trimmed", instance: "aaa a" },
+	{ schema: "trimmed", instance: "a aa" },
+	{ schema: "trimmed", instance: "aa aa" },
+	{ schema: "trimmed", instance: "aaa aa" },
+	{ schema: "trimmed", instance: "a aaa" },
+	{ schema: "trimmed", instance: "aa aaa" },
+	{ schema: "trimmed", instance: "aaa aaa" },
+
+	{ schema: "trimmed", instance: "a ", response: ['$ ("a ") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " a", response: ['$ (" a") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " a ", response: ['$ (" a ") is not a "trimmed".'] },
+
+	{ schema: "trimmed", instance: "a\n", response: ['$ ("a\\n") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\na", response: ['$ ("\\na") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\na\n", response: ['$ ("\\na\\n") is not a "trimmed".'] },
+
+	{ schema: { type: "constant", value: "abc" }, instance: "abc" },
+	{ schema: { type: "constant", value: 123 }, instance: 123 },
+
+	{ schema: { type: "not", schema: "integer" }, instance: "a" },
+	{ schema: { type: "not", schema: "string" }, instance: 123 },
+	{ schema: { type: "not", schema: { type: "constant", value: 123 } }, instance: 124 },
+	{ schema: { type: "not", schema: "trimmed" }, instance: "a " },
+	{ schema: { type: "not", schema: { type: "not", schema: "trimmed" } }, instance: "a" },
+
 	{ schema: "string", response: ["$ is required."] },
 	{ schema: "string", instance: null, response: ["$ (null) is not a string."] },
 	{ schema: "string", instance: "" },
@@ -123,13 +165,14 @@ describe("validate", () => {
 
 		it("should handle ..", () => {
 
-			const errors = validate(root, scenario.schema, "$");
-			if (errors === undefined) {
-				// ok
-			}
-			else {
-				throw new Error();
-			}
+			// const errors = validate(root, scenario.schema, "$");
+			// if (errors === undefined) {
+			// 	// ok
+			// }
+			// else {
+			// 	console.log(errors);
+			// 	throw new Error();
+			// }
 
 			const response = validate(scenario.schema, scenario.instance, "$");
 

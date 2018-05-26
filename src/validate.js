@@ -1,19 +1,66 @@
 "use strict";
 const { format } = require("util");
 const { isArray } = Array;
-const { isInteger, isFinite } = Number;
+const { isInteger, isFinite, isNaN } = Number;
 
 const regexpCache = {};
 
 const coderegex = /^(?=.{1,1024}$)([0-9a-zçğıöşü]+([-_.][0-9a-zçğıöşü]+)*)$/;
+const trimmedregex = /^\S+($|[\s\S]*\S$)/;
+
+const aliases = {
+	"object": {
+		type: "object",
+		required: true
+	},
+	"array": {
+		type: "array",
+		required: true
+	},
+	"string": {
+		type: "string",
+		required: true
+	},
+	"trimmed": {
+		type: "string",
+		required: true,
+		pattern: trimmedregex.source,
+		patternName: "trimmed"
+	},
+	"code": {
+		type: "string",
+		required: true,
+		pattern: coderegex.source,
+		patternName: "code"
+	},
+	"number": {
+		type: "number",
+		required: true
+	},
+	"integer": {
+		type: "number",
+		required: true,
+		set: "integer"
+	},
+	"finite": {
+		type: "number",
+		required: true,
+		set: "finite"
+	},
+	"boolean": {
+		type: "boolean",
+		required: true
+	}
+};
 
 function validate(schema, instance, name) {
 
 	const queue = [];
 
-	function enqueue(schema, instance, name) {
+	function enqueue(parency, schema, instance, name) {
 
 		queue.push({
+			parency,
 			schema,
 			instance,
 			name
@@ -23,6 +70,16 @@ function validate(schema, instance, name) {
 	function dequeue() {
 
 		return queue.shift();
+	}
+
+	function undequeue(parency, schema, instance, name) {
+
+		queue.unshift({
+			parency,
+			schema,
+			instance,
+			name
+		});
 	}
 
 	function length() {
@@ -52,40 +109,6 @@ function validate(schema, instance, name) {
 		errors.push(
 			compound
 		);
-	}
-
-	function validateObject(instance, name) {
-
-		if (instance === null) {
-			report(
-				"%s (null) is not an object.",
-				name
-			);
-
-			return;
-		}
-
-		if (typeof instance === "object") {
-			// ok
-		}
-		else {
-			report(
-				"%s (%j) is not an object.",
-				name,
-				instance
-			);
-
-			return;
-		}
-
-		if (Array.isArray(instance)) {
-
-			report(
-				"%s (%j) is not an object.",
-				name,
-				instance
-			);
-		}
 	}
 
 	function validateSchemaObject(instance, name, schema) {
@@ -135,28 +158,12 @@ function validate(schema, instance, name) {
 				const childInstance = instance[propertyName];
 
 				enqueue(
+					{ type: "property", instance, propertyName },
 					childSchema,
 					childInstance,
 					`${name}.${propertyName}`
 				);
 			}
-		}
-	}
-
-	function validateArray(instance, name) {
-
-		if (Array.isArray(instance)) {
-			// ok
-		}
-		else {
-
-			report(
-				"%s (%j) is not an array.",
-				name,
-				instance
-			);
-
-			return;
 		}
 	}
 
@@ -187,6 +194,7 @@ function validate(schema, instance, name) {
 				const childInstance = instance[i];
 
 				enqueue(
+					{ type: "item", instance, index: i },
 					items,
 					childInstance,
 					`${name}[${i}]`
@@ -195,7 +203,7 @@ function validate(schema, instance, name) {
 		}
 	}
 
-	function validateString(instance, name) {
+	function validateSchemaString(instance, name, schema) {
 
 		if (typeof instance === "string") {
 			// ok
@@ -207,101 +215,141 @@ function validate(schema, instance, name) {
 				name,
 				instance
 			);
+
+			return;
 		}
-	}
 
-	function validateTrimmed(instance, name) {
+		const pattern = schema.pattern;
+		if (pattern === undefined) {
+			// ok
+		}
+		else if (typeof pattern === "string") {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
 
-		if (typeof instance === "string") {
+		if (pattern === undefined) {
+			// ok
+		}
+		else {
 
-			if (0 < instance.length) {
+			let regexp = regexpCache[pattern];
+			if (regexp === undefined) {
 
-				const trimmed = instance.trim();
+				regexp = new RegExp(
+					pattern
+				);
 
-				if (0 < trimmed.length) {
-					// ok
+				regexpCache[pattern] = regexp;
+			}
+
+			if (regexp.test(instance)) {
+				// ok
+			}
+			else {
+
+				if (typeof schema.patternName === "string") {
+
+					report(
+						"%s (%j) is not a %j.",
+						name,
+						instance,
+						schema.patternName
+					);
 				}
 				else {
 
 					report(
-						"%s (%j) is not a trimmed.",
+						"%s (%j) does not match pattern (%s).",
 						name,
-						instance
+						instance,
+						pattern
 					);
 				}
-			}
-			else {
 
-				report(
-					"%s (%j) is not a trimmed.",
-					name,
-					instance
-				);
+				return;
 			}
-		}
-		else {
-
-			report(
-				"%s (%j) is not a trimmed.",
-				name,
-				instance
-			);
 		}
 	}
 
-	function validateCode(instance, name) {
+	function validateSchemaNumber(instance, name, schema) {
 
-		if (typeof instance === "string") {
+		const set = schema.set;
+		if (set === undefined) {
 
-			if (coderegex.test(instance)) {
+			if (typeof instance === "number") {
 				// ok
 			}
 			else {
 
 				report(
-					"%s (%j) is not a code.",
+					"%s (%j) is not a number.",
 					name,
 					instance
 				);
+
+				return;
 			}
-		}
-		else {
 
-			report(
-				"%s (%j) is not a trimmed.",
-				name,
-				instance
-			);
-		}
-	}
+			if (isNaN(instance)) {
 
-	function validateNumber(instance, name) {
+				report(
+					"%s (%j) is not a number.",
+					name,
+					instance
+				);
 
-		if (typeof instance === "number") {
-			// ok
-		}
-		else {
-
-			report(
-				"%s (%j) is not a number.",
-				name,
-				instance
-			);
+				return;
+			}
 
 			return;
 		}
 
-		if (Number.isNaN(instance)) {
+		switch (set) {
 
-			report(
-				"%s (%j) is not a number.",
-				name,
-				instance
-			);
+			case "integer":
+
+				if (isInteger(instance)) {
+					// ok
+				}
+				else {
+					report(
+						"%s (%j) is not an integer.",
+						name,
+						instance
+					);
+
+					return;
+				}
+
+				break;
+
+			case "finite":
+
+				if (isFinite(instance)) {
+					// ok
+				}
+				else {
+
+					report(
+						"%s (%j) is not a finite.",
+						name,
+						instance
+					);
+
+					return;
+				}
+
+				break;
+
+			default:
+				throw new Error();
 		}
 	}
 
-	function validateInteger(instance, name) {
+	function validateSchemaInteger(instance, name, schema) {
 
 		if (isInteger(instance)) {
 			// ok
@@ -317,7 +365,7 @@ function validate(schema, instance, name) {
 		}
 	}
 
-	function validateFinite(instance, name) {
+	function validateSchemaFinite(instance, name, schema) {
 
 		if (isFinite(instance)) {
 			// ok
@@ -333,7 +381,7 @@ function validate(schema, instance, name) {
 		}
 	}
 
-	function validateBoolean(instance, name) {
+	function validateSchemaBoolean(instance, name, schema) {
 
 		if (instance === true) {
 			// ok
@@ -344,22 +392,6 @@ function validate(schema, instance, name) {
 		else {
 			report(
 				"%s (%j) is not a boolean.",
-				name,
-				instance
-			);
-
-			return;
-		}
-	}
-
-	function validateConstant(instance, name) {
-
-		if (instance === undefined) {
-			// ok
-		}
-		else {
-			report(
-				"%s (%j) is not equal to undefined.",
 				name,
 				instance
 			);
@@ -387,213 +419,172 @@ function validate(schema, instance, name) {
 		}
 	}
 
-	function validateSchemaPattern(instance, name, schema) {
+	function validateConstant(instance, name) {
 
-		const { pattern } = schema;
-
-		if (typeof instance === "string") {
+		if (instance === undefined) {
 			// ok
 		}
 		else {
-
 			report(
-				"%s (%j) does not match pattern (%s).",
+				"%s (%j) is not equal to undefined.",
 				name,
-				instance,
-				pattern
-			);
-
-			return;
-		}
-
-		let regexp = regexpCache[pattern];
-		if (regexp === undefined) {
-			regexp = new RegExp(pattern);
-			regexpCache[pattern] = regexp;
-		}
-
-		if (regexp.test(instance)) {
-			// ok
-		}
-		else {
-
-			report(
-				"%s (%j) does not match pattern (%s).",
-				name,
-				instance,
-				pattern
+				instance
 			);
 
 			return;
 		}
 	}
 
+	function loop() {
+
+		do {
+
+			const { parency, schema, instance, name } = dequeue();
+
+			if (typeof schema === "string") {
+
+				if (instance === undefined) {
+
+					report(
+						"%s is required.",
+						name
+					);
+
+					continue;
+				}
+
+				const defaultSchema = aliases[schema];
+
+				if (defaultSchema === undefined) {
+					throw new Error(format("unknown type %j.", schema));
+				}
+
+				undequeue(
+					parency,
+					defaultSchema,
+					instance,
+					name
+				);
+			}
+			else if (isArray(schema)) {
+
+				if (0 < schema.length) {
+
+					let match;
+					let acc;
+					for (const item of schema) {
+
+						const errors = validate(item, instance, name);
+						if (errors === undefined) {
+							match = true;
+							break;
+						}
+
+						if (acc === undefined) {
+							acc = [];
+						}
+
+						acc.push(errors);
+					}
+
+					if (match === true) {
+						continue;
+					}
+
+					reportCompound(
+						acc
+					);
+
+					continue;
+				}
+
+				report(
+					"%s is not permitted to match anything.",
+					name
+				);
+			}
+			else {
+
+				if (instance === undefined) {
+
+					const { required } = schema;
+
+					if (required === true) {
+						report(
+							"%s is required.",
+							name
+						);
+					}
+					else {
+						// ok
+					}
+
+					continue;
+				}
+
+				const { type } = schema;
+
+				switch (type) {
+
+					case "object":
+						validateSchemaObject(instance, name, schema);
+						break;
+
+					case "array":
+						validateSchemaArray(instance, name, schema);
+						break;
+
+					case "string":
+						validateSchemaString(instance, name, schema);
+						break;
+
+					case "number":
+						validateSchemaNumber(instance, name, schema);
+						break;
+
+					case "boolean":
+						validateSchemaBoolean(instance, name, schema);
+						break;
+
+					case "constant":
+						validateSchemaConstant(instance, name, schema);
+						break;
+
+					case "not": {
+
+						const errors = validate(schema.schema, instance, name);
+						if (errors === undefined) {
+							report(
+								"%s matches.",
+								name
+							);
+						}
+						break;
+					}
+
+					default:
+
+						throw new Error(
+							format(
+								"unknown type %j %j.",
+								schema,
+								schema.type
+							)
+						);
+				}
+			}
+
+		} while (0 < length());
+	}
+
 	enqueue(
+		{ type: "root" },
 		schema,
 		instance,
 		name
 	);
 
-	do {
-
-		const { schema, instance, name } = dequeue();
-
-		if (typeof schema === "string") {
-
-			if (instance === undefined) {
-
-				report(
-					"%s is required.",
-					name
-				);
-
-				continue;
-			}
-
-			switch (schema) {
-
-				case "object":
-					validateObject(instance, name);
-					break;
-
-				case "array":
-					validateArray(instance, name);
-					break;
-
-				case "string":
-					validateString(instance, name);
-					break;
-
-				case "trimmed":
-					validateTrimmed(instance, name);
-					break;
-
-				case "code":
-					validateCode(instance, name);
-					break;
-
-				case "number":
-					validateNumber(instance, name);
-					break;
-
-				case "integer":
-					validateInteger(instance, name);
-					break;
-
-				case "finite":
-					validateFinite(instance, name);
-					break;
-
-				case "boolean":
-					validateBoolean(instance, name);
-					break;
-
-				case "constant":
-					validateConstant(instance, name);
-					break;
-
-				default:
-					throw new Error(format("unknown type %j.", schema));
-			}
-		}
-		else if (isArray(schema)) {
-
-			if (0 < schema.length) {
-
-				let match;
-				let acc;
-				for (const item of schema) {
-
-					const errors = validate(item, instance, name);
-					if (errors === undefined) {
-						match = true;
-						break;
-					}
-
-					if (acc === undefined) {
-						acc = [];
-					}
-
-					acc.push(errors);
-				}
-
-				if (match === true) {
-					continue;
-				}
-
-				reportCompound(
-					acc
-				);
-
-				continue;
-			}
-
-			report(
-				"%s is not permitted to match anything.",
-				name
-			);
-		}
-		else {
-
-			if (instance === undefined) {
-
-				const { required } = schema;
-
-				if (required === true) {
-					report(
-						"%s is required.",
-						name
-					);
-				}
-				else {
-					// ok
-				}
-
-				continue;
-			}
-
-			const { type } = schema;
-
-			switch (type) {
-
-				case "object":
-					validateSchemaObject(instance, name, schema);
-					break;
-
-				case "array":
-					validateSchemaArray(instance, name, schema);
-					break;
-
-				case "string":
-					validateString(instance, name, schema);
-					break;
-
-				case "integer":
-					validateInteger(instance, name, schema);
-					break;
-
-				case "finite":
-					validateFinite(instance, name, schema);
-					break;
-
-				case "boolean":
-					validateBoolean(instance, name, schema);
-					break;
-
-				case "constant":
-					validateSchemaConstant(instance, name, schema);
-					break;
-
-				case "pattern":
-					validateSchemaPattern(instance, name, schema);
-					break;
-
-				default:
-					throw new Error(format("unknown type %j %j.", schema, schema.type));
-			}
-		}
-
-	} while (length());
+	loop();
 
 	return errors;
 }
