@@ -253,7 +253,7 @@ function validate(schema, instance, name) {
 
 		if (typeof instance === "string") {
 
-			if (coderegex.test(value)) {
+			if (coderegex.test(instance)) {
 				// ok
 			}
 			else {
