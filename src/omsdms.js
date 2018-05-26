@@ -1227,7 +1227,7 @@ class Worker {
 
 		for (let i = 0; i < 10; i++) {
 
-			console.log(
+			this.log.trace(
 				"delete message %j...",
 				messageId
 			);
@@ -1240,7 +1240,7 @@ class Worker {
 			}
 			catch (error) {
 
-				console.log(
+				this.log.warn(
 					"cannot delete message:",
 					error
 				);
