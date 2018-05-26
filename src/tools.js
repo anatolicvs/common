@@ -239,7 +239,7 @@ function getId(value, name) {
 
 function ogetId(value, name) {
 
-	if (value === void 0) {
+	if (value === undefined) {
 		return;
 	}
 
@@ -291,7 +291,7 @@ function getCode(value, name) {
 
 function ogetCode(value, name) {
 
-	if (value === void 0) {
+	if (value === undefined) {
 		return;
 	}
 
@@ -438,7 +438,7 @@ function getInteger(value, name) {
 
 function ogetInteger(value, name) {
 
-	if (value === void 0) {
+	if (value === undefined) {
 		return;
 	}
 
@@ -569,7 +569,7 @@ function getObject2(value, name) {
 
 function ogetObject2(value, name) {
 
-	if (value === void 0) {
+	if (value === undefined) {
 		return;
 	}
 
@@ -602,7 +602,7 @@ function getTrimmed(value, name) {
 		value
 	);
 
-	if (trimmed === void 0) {
+	if (trimmed === undefined) {
 
 		if (name) {
 			throw new Error(
@@ -666,6 +666,18 @@ function getTrimmedString(value, name) {
 			"(%j) is not a trimmed.",
 			value
 		)
+	);
+}
+
+function ogetTrimmedString(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getTrimmedString(
+		value,
+		name
 	);
 }
 
@@ -939,7 +951,7 @@ function createTable(array, key) {
 
 		const id = item[key];
 
-		if (result[id] !== void 0) {
+		if (result[id] !== undefined) {
 
 			console.log(JSON.stringify(array, null, "  "));
 
@@ -997,7 +1009,7 @@ function differentiate(internals, internalKey, externals, externalKey, update) {
 		const internalId = internal[internalKey];
 		const external = externalsTable[internalId];
 
-		if (external === void 0) {
+		if (external === undefined) {
 			difference.delete.push(internal);
 		}
 		else {
@@ -1022,7 +1034,7 @@ function differentiate(internals, internalKey, externals, externalKey, update) {
 		const externalId = external[externalKey];
 		const internal = internalsTable[externalId];
 
-		if (internal === void 0) {
+		if (internal === undefined) {
 			difference.import.push(external);
 		}
 	}
@@ -1046,17 +1058,17 @@ function run(array, cb) {
 
 			const activity = array[i];
 
-			// ASSERT(error === void 0)
+			// ASSERT(error === undefined)
 
 			switch (invoke(i, activity)) {
 
 				case 0:
-					// ASSERT(error === void 0)
+					// ASSERT(error === undefined)
 
 					return;
 
 				case 1:
-					// ASSERT(error === void 0)
+					// ASSERT(error === undefined)
 
 					break;
 
@@ -1068,7 +1080,7 @@ function run(array, cb) {
 			}
 		}
 
-		// ASSERT(error === void 0)
+		// ASSERT(error === undefined)
 
 		return cb();
 	}
@@ -1077,7 +1089,7 @@ function run(array, cb) {
 
 		// ASSERT(Number.isInteger(index))
 		// ASSERT(0 <= index)
-		// ASSERT(error === void 0)
+		// ASSERT(error === undefined)
 
 		/*
 				[0]		->	"cb()"		->		1
@@ -1111,8 +1123,8 @@ function run(array, cb) {
 				switch (state) {
 
 					case 0:
-						// ASSERT(error === void 0)
-						// ASSERT(reportedError === void 0)
+						// ASSERT(error === undefined)
+						// ASSERT(reportedError === undefined)
 
 						if (err) {
 							reportedError = err;
@@ -1128,19 +1140,19 @@ function run(array, cb) {
 						break;
 
 					case 1:
-						// ASSERT(error === void 0)
-						// ASSERT(reportedError === void 0)
+						// ASSERT(error === undefined)
+						// ASSERT(reportedError === undefined)
 
 						throw new Error(`'${index}' already completed.`);
 
 					case 2:
-						// ASSERT(error === void 0)
+						// ASSERT(error === undefined)
 						// ASSERT(reportedError)
 
 						throw new Error(`'${index}' already failed.`);
 
 					case 3:
-						// ASSERT(reportedError === void 0)
+						// ASSERT(reportedError === undefined)
 
 						if (err) {
 							state = 10;
@@ -1182,7 +1194,7 @@ function run(array, cb) {
 						throw new Error(`'${index}' already failed.`);
 
 					case 9:
-						// ASSERT(reportedError === void 0)
+						// ASSERT(reportedError === undefined)
 
 						throw new Error(`'${index}' already completed.`);
 
@@ -1203,8 +1215,8 @@ function run(array, cb) {
 
 			switch (state) {
 				case 0:
-					// ASSERT(error === void 0)
-					// ASSERT(reportedError === void 0)
+					// ASSERT(error === undefined)
+					// ASSERT(reportedError === undefined)
 
 					state = 4;
 
@@ -1214,8 +1226,8 @@ function run(array, cb) {
 					return 2;
 
 				case 1:
-					// ASSERT(error === void 0)
-					// ASSERT(reportedError === void 0)
+					// ASSERT(error === undefined)
+					// ASSERT(reportedError === undefined)
 
 					state = 6;
 
@@ -1225,7 +1237,7 @@ function run(array, cb) {
 					return 2;
 
 				case 2:
-					// ASSERT(error === void 0)
+					// ASSERT(error === undefined)
 					// ASSERT(reportedError)
 
 					state = 8;
@@ -1247,8 +1259,8 @@ function run(array, cb) {
 
 		switch (state) {
 			case 0:
-				// ASSERT(error === void 0)
-				// ASSERT(reportedError === void 0)
+				// ASSERT(error === undefined)
+				// ASSERT(reportedError === undefined)
 
 				state = 3;
 
@@ -1257,8 +1269,8 @@ function run(array, cb) {
 				return 0;
 
 			case 1:
-				// ASSERT(error === void 0)
-				// ASSERT(reportedError === void 0)
+				// ASSERT(error === undefined)
+				// ASSERT(reportedError === undefined)
 
 				state = 5;
 
@@ -1267,7 +1279,7 @@ function run(array, cb) {
 				return 1;
 
 			case 2:
-				// ASSERT(error === void 0)
+				// ASSERT(error === undefined)
 				// ASSERT(reportedError)
 
 				state = 7;
@@ -1635,6 +1647,8 @@ module.exports = {
 	ogetObject,
 
 	getTrimmed,
+	getTrimmedString,
+	ogetTrimmedString,
 	getEmail,
 
 	asId,
