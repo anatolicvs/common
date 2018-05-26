@@ -27,6 +27,8 @@ const {
 
 const b64u = require("./b64u");
 
+const { validate } = require("./validate");
+
 const {
 	DataAccess
 } = require("./DataAccess");
