@@ -654,21 +654,33 @@ function hostService({
 	requestServiceClient.log = createLog("request-service-client");
 	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
 
-	const service = createService({
+	const instances = createService({
 		createLog,
 		da,
 		sqs
 	});
 
-	for (const key in config.service) {
+	for (const instanceName in instances) {
 
-		const value = config.service[key];
+		const instance = instances[instanceName];
 
-		if (service[key] === undefined) {
-			throw new Error();
+		const instanceConfig = config[instanceName];
+		if (instanceConfig === undefined) {
+			continue;
 		}
 
-		service[key] = value;
+		for (const propertyName in instanceConfig) {
+
+			const value = instanceConfig[
+				propertyName
+			];
+
+			if (instance[propertyName] === undefined) {
+				throw new Error();
+			}
+
+			instance[propertyName] = value;
+		}
 	}
 
 	const httpapi = {
@@ -723,9 +735,7 @@ function hostService({
 	};
 
 	requestGateway.requestService = requestServiceClient;
-	requestGateway.instances = {
-		service
-	};
+	requestGateway.instances = instances;
 
 	const requestGatewayOnRequest = requestGateway.onRequest.bind(
 		requestGateway
@@ -1359,21 +1369,34 @@ function hostWorker({
 	da.tableNamePrefix = config.tableNamePrefix;
 	da.ddb = ddb;
 
-	const service = createService({
+
+	const instances = createService({
 		createLog,
 		da,
 		sqs
 	});
 
-	for (const key in config.service) {
+	for (const instanceName in instances) {
 
-		const value = config.service[key];
+		const instance = instances[instanceName];
 
-		if (service[key] === undefined) {
-			throw new Error();
+		const instanceConfig = config[instanceName];
+		if (instanceConfig === undefined) {
+			continue;
 		}
 
-		service[key] = value;
+		for (const propertyName in instanceConfig) {
+
+			const value = instanceConfig[
+				propertyName
+			];
+
+			if (instance[propertyName] === undefined) {
+				throw new Error();
+			}
+
+			instance[propertyName] = value;
+		}
 	}
 
 	let cacheRedis = null;
@@ -1398,9 +1421,7 @@ function hostWorker({
 	worker.queueUrl = config.queue;
 	worker.api = workerapi;
 	worker.requestService = requestServiceClient;
-	worker.instances = {
-		service
-	};
+	worker.instances = instances;
 
 	async function start() {
 
