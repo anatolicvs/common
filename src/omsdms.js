@@ -311,7 +311,7 @@ function hostAPI({
 	name,
 	configs,
 	api,
-	Service
+	createService
 }) {
 
 	const env = process.env.FIYUU_ENV;
@@ -382,20 +382,33 @@ function hostAPI({
 	accessServiceClient.log = createLog("access-service-client");
 	accessServiceClient.baseUrl = config.accessServiceBaseUrl;
 
-	const service = new Service();
-	service.log = createLog("service");
 
-	for (const key in config.service) {
+	const instances = createService({
+		createLog
+	});
 
-		const value = config.service[key];
+	for (const instanceName in instances) {
 
-		if (service[key] === undefined) {
-			throw new Error();
+		const instance = instances[instanceName];
+
+		const instanceConfig = config[instanceName];
+		if (instanceConfig === undefined) {
+			continue;
 		}
 
-		service[key] = value;
+		for (const propertyName in instanceConfig) {
+
+			const value = instanceConfig[
+				propertyName
+			];
+
+			if (instance[propertyName] === undefined) {
+				throw new Error();
+			}
+
+			instance[propertyName] = value;
+		}
 	}
-	// service.baseUrl = config.serviceBaseUrl;
 
 	const httpapi = {
 
@@ -453,9 +466,7 @@ function hostAPI({
 	requestGateway.log = createLog("request-gateway");
 	requestGateway.api = httpapi;
 	requestGateway.authorizationService = authorizationService;
-	requestGateway.instances = {
-		service
-	};
+	requestGateway.instances = instances;
 
 	const requestGatewayOnRequest = requestGateway.onRequest.bind(
 		requestGateway
