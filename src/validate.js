@@ -13,17 +13,31 @@ const aliases = {
 		type: "object",
 		required: true
 	},
+	"oobject": {
+		type: "object"
+	},
 	"array": {
 		type: "array",
 		required: true
+	},
+	"oarray": {
+		type: "array"
 	},
 	"string": {
 		type: "string",
 		required: true
 	},
+	"ostring": {
+		type: "string"
+	},
 	"trimmed": {
 		type: "string",
 		required: true,
+		pattern: trimmedregex.source,
+		patternName: "trimmed"
+	},
+	"otrimmed": {
+		type: "string",
 		pattern: trimmedregex.source,
 		patternName: "trimmed"
 	},
@@ -33,13 +47,25 @@ const aliases = {
 		pattern: coderegex.source,
 		patternName: "code"
 	},
+	"ocode": {
+		type: "string",
+		pattern: coderegex.source,
+		patternName: "code"
+	},
 	"number": {
 		type: "number",
 		required: true
 	},
+	"onumber": {
+		type: "number"
+	},
 	"integer": {
 		type: "number",
 		required: true,
+		set: "integer"
+	},
+	"ointeger": {
+		type: "number",
 		set: "integer"
 	},
 	"finite": {
@@ -47,9 +73,16 @@ const aliases = {
 		required: true,
 		set: "finite"
 	},
+	"ofinite": {
+		type: "number",
+		set: "finite"
+	},
 	"boolean": {
 		type: "boolean",
 		required: true
+	},
+	"oboolean": {
+		type: "boolean"
 	}
 };
 
