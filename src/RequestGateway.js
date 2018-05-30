@@ -301,7 +301,6 @@ class RequestGateway {
 		// authorize
 
 		let principalId;
-		let claims;
 		if (authorize) {
 
 			let authorizationResult;
@@ -337,7 +336,6 @@ class RequestGateway {
 			}
 
 			principalId = authorizationResult.principalId;
-			claims = authorizationResult.claims;
 		}
 
 		// invoke
@@ -357,7 +355,7 @@ class RequestGateway {
 				let data;
 				try {
 					data = await instance[methodName](
-						{ principalId, claims },
+						{ principalId },
 						body
 					);
 				}
@@ -459,7 +457,7 @@ class RequestGateway {
 				let data;
 				try {
 					data = await instance[methodName](
-						{ principalId, claims, requestId },
+						{ principalId, requestId },
 						body
 					);
 				}

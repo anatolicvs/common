@@ -1,4 +1,7 @@
 "use strict";
+const { parse: parseUrl } = require("url");
+const http = require("http");
+const https = require("https");
 
 class HttpClient {
 
