@@ -290,9 +290,14 @@ class ServiceClientBase2 {
 					throw new Error();
 			}
 
-			options.headers = {
-				"x-fiyuu-principal": principalId
-			};
+			options.headers = {};
+
+			if (principalId === undefined) {
+				// ok
+			}
+			else {
+				options.headers["x-fiyuu-principal"] = principalId;
+			}
 
 			// if (this.authorization === null) {
 			// 	// ok
