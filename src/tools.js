@@ -88,6 +88,13 @@ function rng16hex() {
 }
 
 /*******************************
+	rng32hex
+*******************************/
+function rng32hex() {
+	return crypto.randomBytes(32).toString("hex");
+}
+
+/*******************************
 	isArray
 *******************************/
 function isArray(value) {
@@ -1611,6 +1618,7 @@ module.exports = {
 	ts,
 	newid,
 	rng16hex,
+	rng32hex,
 	isArray,
 	isFinite,
 	isInteger,
