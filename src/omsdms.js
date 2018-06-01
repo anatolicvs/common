@@ -498,17 +498,9 @@ function hostAPI({
 
 		server.on("connection", socket => {
 
-			log.trace(
-				"new connection"
-			);
-
 			socketCount++;
 
 			socket.once("close", hadError => {
-
-				log.trace(
-					"connection closed."
-				);
 
 				socketCount--;
 			});
@@ -780,17 +772,9 @@ function hostService({
 
 		server.on("connection", socket => {
 
-			log.trace(
-				"new connection"
-			);
-
 			socketCount++;
 
 			socket.once("close", hadError => {
-
-				log.trace(
-					"connection closed."
-				);
 
 				socketCount--;
 			});
