@@ -331,6 +331,8 @@ function hostAPI({
 	}
 
 	const simpleLogService = new SimpleLogService();
+	simpleLogService.app = name;
+	simpleLogService.env = env;
 
 	const stdoutAppender = new StdoutAppender();
 	simpleLogService.appenders.push(
@@ -633,6 +635,8 @@ function hostService({
 	}
 
 	const simpleLogService = new SimpleLogService();
+	simpleLogService.app = name;
+	simpleLogService.env = env;
 
 	const stdoutAppender = new StdoutAppender();
 	simpleLogService.appenders.push(
@@ -1233,8 +1237,10 @@ function hostWorker({
 	}
 
 	const simpleLogService = new SimpleLogService();
-	const stdoutAppender = new StdoutAppender();
+	simpleLogService.app = name;
+	simpleLogService.env = env;
 
+	const stdoutAppender = new StdoutAppender();
 	simpleLogService.appenders.push(
 		stdoutAppender
 	);
