@@ -80,7 +80,7 @@ const ProductServiceClient = ServiceClientBase2.create({
 
 class AuthorizationService {
 
-	async extract(request) {
+	extract(request) {
 
 		const authorizationHeader = request.headers["authorization"];
 		if (authorizationHeader === undefined) {
@@ -330,29 +330,10 @@ function hostAPI({
 
 	const simpleLogService = new SimpleLogService();
 
-	if (Array.isArray(config.appenders)) {
-
-		for (const appender of config.appenders) {
-
-			if (appender.type === "stdout") {
-
-				const stdoutAppender = new StdoutAppender();
-				if (typeof appender.max === "number") {
-
-					if (Number.isNaN(appender.max)) {
-						// ok		
-					}
-					else {
-						stdoutAppender.max = appender.max;
-					}
-				}
-
-				simpleLogService.appenders.push(
-					stdoutAppender
-				);
-			}
-		}
-	}
+	const stdoutAppender = new StdoutAppender();
+	simpleLogService.appenders.push(
+		stdoutAppender
+	);
 
 	function createLog(category) {
 
@@ -582,29 +563,10 @@ function hostService({
 
 	const simpleLogService = new SimpleLogService();
 
-	if (Array.isArray(config.appenders)) {
-
-		for (const appender of config.appenders) {
-
-			if (appender.type === "stdout") {
-
-				const stdoutAppender = new StdoutAppender();
-				if (typeof appender.max === "number") {
-
-					if (Number.isNaN(appender.max)) {
-						// ok		
-					}
-					else {
-						stdoutAppender.max = appender.max;
-					}
-				}
-
-				simpleLogService.appenders.push(
-					stdoutAppender
-				);
-			}
-		}
-	}
+	const stdoutAppender = new StdoutAppender();
+	simpleLogService.appenders.push(
+		stdoutAppender
+	);
 
 	function createLog(category) {
 
@@ -635,7 +597,7 @@ function hostService({
 		config.ddbOptions
 	);
 
-	const sqs = new aws.DynamoDB.DocumentClient(
+	const sqs = new aws.SQS(
 		config.sqsOptions
 	);
 
@@ -652,10 +614,6 @@ function hostService({
 	da.log = createLog("da");
 	da.tableNamePrefix = config.tableNamePrefix;
 	da.ddb = ddb;
-
-	const requestServiceClient = new RequestServiceClient();
-	requestServiceClient.log = createLog("request-service-client");
-	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
 
 	const instances = createService({
 		createLog,
@@ -737,7 +695,6 @@ function hostService({
 		}
 	};
 
-	requestGateway.requestService = requestServiceClient;
 	requestGateway.instances = instances;
 
 	const requestGatewayOnRequest = requestGateway.onRequest.bind(
@@ -1022,7 +979,6 @@ class Worker {
 			}
 
 			let principalId;
-			let requestId;
 
 			if (headers === undefined) {
 				// ok
@@ -1044,31 +1000,6 @@ class Worker {
 
 					throw new Error("invalid-message");
 				}
-
-				requestId = headers.requestId;
-				if (requestId === undefined) {
-					// ok
-				}
-				else if (tools.isCode(requestId)) {
-
-					if (principalId === undefined) {
-
-						this.log.warn(
-							"principalId is required for requests."
-						);
-
-						throw new Error("invalid-message");
-					}
-				}
-				else {
-
-					this.log.warn(
-						"requestId is not a code."
-					);
-
-					throw new Error("invalid-message");
-				}
-
 			}
 			else {
 
@@ -1102,104 +1033,41 @@ class Worker {
 						);
 					}
 
-					if (requestId === undefined) {
-
-					}
-					else {
-						await this.requestService.completeRequest({
-							requestId,
-							code: "invalid-request"
-						});
-					}
-
 					throw new Error("invalid-message");
 				}
 			}
 
-			if (requestId === undefined) {
+			const instanceName = handler.instance;
+			const methodName = handler.method;
 
-				const instanceName = handler.instance;
-				const methodName = handler.method;
+			const instance = this.instances[instanceName];
 
-				const instance = this.instances[instanceName];
+			this.log.trace(
+				"process message %j...",
+				messageId
+			);
 
-				this.log.trace(
-					"process one-way message %j...",
-					messageId
+			try {
+
+				await instance[methodName](
+					{ principalId },
+					content
 				);
-
-				try {
-
-					await instance[methodName](
-						{ principalId, requestId },
-						content
-					);
-				}
-				catch (error) {
-
-					if (handler.faults && handler.faults[error.message] === null) {
-
-						this.log.warn(
-							"message is reported as invalid."
-						);
-
-						throw new Error("invalid-message");
-					}
-					else {
-
-						this.log.warn(error);
-					}
-				}
 			}
-			else {
+			catch (error) {
 
-				const instanceName = handler.instance;
-				const methodName = handler.method;
+				if (handler.faults && handler.faults[error.message] === null) {
 
-				const instance = this.instances[instanceName];
-
-				this.log.trace(
-					"process request message %j...",
-					messageId
-				);
-
-				let data;
-				try {
-
-					data = await instance[methodName](
-						{ principalId, requestId },
-						content
+					this.log.warn(
+						"message is reported as invalid."
 					);
+
+					throw new Error("invalid-message");
 				}
-				catch (error) {
+				else {
 
-					if (handler.faults && handler.faults[error.message] === null) {
-
-						this.log.warn(
-							"message is reported as invalid."
-						);
-
-						await this.requestService.completeRequest({
-							requestId,
-							code: error.message
-						});
-
-						throw new Error("invalid-message");
-					}
-					else {
-
-						this.log.warn(error);
-
-						throw new Error("retry");
-					}
-
+					this.log.warn(error);
 				}
-
-				await this.requestService.completeRequest({
-					requestId,
-					code: "ok",
-					data
-				});
 			}
 		}
 		catch (error) {
@@ -1265,7 +1133,6 @@ Worker.prototype.sns = null;
 Worker.prototype.queueUrl = null;
 Worker.prototype.receiveMessageRequest = null;
 Worker.prototype.api = null;
-Worker.prototype.requestService = null;
 Worker.prototype.instances = null;
 
 
@@ -1291,30 +1158,11 @@ function hostWorker({
 	}
 
 	const simpleLogService = new SimpleLogService();
+	const stdoutAppender = new StdoutAppender();
 
-	if (Array.isArray(config.appenders)) {
-
-		for (const appender of config.appenders) {
-
-			if (appender.type === "stdout") {
-
-				const stdoutAppender = new StdoutAppender();
-				if (typeof appender.max === "number") {
-
-					if (Number.isNaN(appender.max)) {
-						// ok		
-					}
-					else {
-						stdoutAppender.max = appender.max;
-					}
-				}
-
-				simpleLogService.appenders.push(
-					stdoutAppender
-				);
-			}
-		}
-	}
+	simpleLogService.appenders.push(
+		stdoutAppender
+	);
 
 	function createLog(category) {
 
@@ -1401,10 +1249,6 @@ function hostWorker({
 		log.error("unhandled rejection:", error);
 	});
 
-	const requestServiceClient = new RequestServiceClient();
-	requestServiceClient.log = createLog("request-service-client");
-	requestServiceClient.baseUrl = config.requestServiceBaseUrl;
-
 	const workerapi = {
 		...api.endpoints
 	};
@@ -1415,7 +1259,6 @@ function hostWorker({
 	worker.sns = sns;
 	worker.queueUrl = config.queue;
 	worker.api = workerapi;
-	worker.requestService = requestServiceClient;
 	worker.instances = instances;
 
 	async function start() {
