@@ -309,6 +309,8 @@ function stopHttpServer(log, server, port) {
 
 function hostAPI({
 	name,
+	createDataAccess,
+	createCacheRedis,
 	configs,
 	api,
 	createService
@@ -344,7 +346,7 @@ function hostAPI({
 		return log;
 	}
 
-	const log = createLog(`host[${name}]`);
+	const log = createLog(`host`);
 
 	log.trace(
 		"create redis appender..."
@@ -359,13 +361,64 @@ function hostAPI({
 		redisAppender
 	);
 
+	//
+
+	let ddb;
+	let sqs;
+	let da;
+
+	if (createDataAccess === true) {
+
+		log.trace(
+			"require aws-sdk..."
+		);
+
+		const aws = require("aws-sdk");
+
+		log.trace(
+			"configure aws-sdk..."
+		);
+
+		aws.config.update({
+			region: "eu-west-1"
+		});
+
+		ddb = new aws.DynamoDB.DocumentClient(
+			config.ddbOptions
+		);
+
+		sqs = new aws.SQS(
+			config.sqsOptions
+		);
+
+		da = new DataAccess();
+		da.log = createLog("da");
+		da.tableNamePrefix = config.tableNamePrefix;
+		da.ddb = ddb;
+	}
+
+	//
+
+	const jwtService = new JWTService();
+
 	const accessServiceClient = new AccessServiceClient();
 	accessServiceClient.log = createLog("access-service-client");
 	accessServiceClient.baseUrl = config.accessServiceBaseUrl;
 
+	const authorizationService = new AuthorizationService();
+	authorizationService.log = createLog("authorization");
+	authorizationService.jwtService = jwtService;
+	authorizationService.accessService = accessServiceClient;
+	authorizationService.publicKeys = {
+		"key-1": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtHJJqTPTTm8U56NFbwfo\nCqoIAwCSzvJn9tipY8klvGQENp2g1Drs600PSNiDrzOWBY/ahGFQixmbuBeHSO2P\nsdgdGs0ChKNBBC2Ow5GzSaDHC6OZbGDlPHvtnFkJL2WUm4ZcsO0wnllQaCq66loM\nVBXEAsY8fYdf+kNkmfa3lJ6ybJ1mJw7cryiupqZ/8Tl+N4MZruc4f7RlXfH4ogew\nvxIeGlbBqWgUV8K4nsLDvT348mWCnozPDZFc1Xhfj/8YpX2spfbuy/wr1nU+HYUS\n3K2dYgpMY+eo2nxJRoKQPg6Z+BrUaxY2mlq0QEHwKAo1cMGX+gtKWKeBn6ECOYrS\nzQIDAQAB\n-----END PUBLIC KEY-----"
+	};
+
 
 	const instances = createService({
-		createLog
+		createLog,
+		ddb,
+		sqs,
+		da
 	});
 
 	for (const instanceName in instances) {
@@ -433,16 +486,6 @@ function hostAPI({
 		response.end();
 	};
 
-	const jwtService = new JWTService();
-
-	const authorizationService = new AuthorizationService();
-	authorizationService.log = createLog("authorization");
-	authorizationService.jwtService = jwtService;
-	authorizationService.accessService = accessServiceClient;
-	authorizationService.publicKeys = {
-		"key-1": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtHJJqTPTTm8U56NFbwfo\nCqoIAwCSzvJn9tipY8klvGQENp2g1Drs600PSNiDrzOWBY/ahGFQixmbuBeHSO2P\nsdgdGs0ChKNBBC2Ow5GzSaDHC6OZbGDlPHvtnFkJL2WUm4ZcsO0wnllQaCq66loM\nVBXEAsY8fYdf+kNkmfa3lJ6ybJ1mJw7cryiupqZ/8Tl+N4MZruc4f7RlXfH4ogew\nvxIeGlbBqWgUV8K4nsLDvT348mWCnozPDZFc1Xhfj/8YpX2spfbuy/wr1nU+HYUS\n3K2dYgpMY+eo2nxJRoKQPg6Z+BrUaxY2mlq0QEHwKAo1cMGX+gtKWKeBn6ECOYrS\nzQIDAQAB\n-----END PUBLIC KEY-----"
-	};
-
 	const requestGateway = new RequestGateway();
 	requestGateway.log = createLog("request-gateway");
 	requestGateway.api = httpapi;
@@ -455,6 +498,7 @@ function hostAPI({
 
 	const server = http.createServer();
 
+	let cacheRedis = null;
 	let publishRedis = null;
 
 	process.on("unhandledRejection", error => {
@@ -465,10 +509,26 @@ function hostAPI({
 
 	async function start() {
 
+		if (createCacheRedis === true) {
+			cacheRedis = createRedisConnection(
+				config.redisOptions,
+				createLog("cache-redis")
+			);
+		}
+
 		publishRedis = createRedisConnection(
 			config.redisOptions,
 			createLog("publish-redis")
 		);
+
+		if (da === undefined) {
+			// ok
+		}
+		else {
+			if (createCacheRedis === true) {
+				da.redis = cacheRedis;
+			}
+		}
 
 		redisAppender.redis = publishRedis;
 		// const aws = require("aws-sdk");
@@ -498,6 +558,7 @@ function hostAPI({
 		process.once("SIGTERM", async () => {
 
 			try {
+
 				log.trace("stop...");
 				await stop();
 
@@ -527,11 +588,21 @@ function hostAPI({
 		});
 	}
 
-
 	async function stop() {
 
 		// close listener
 		await stopHttpServer(log, server, config.port);
+
+		server.removeListener(
+			"request",
+			requestGatewayOnRequest
+		);
+
+		await publishRedis.quitAsync();
+
+		if (createCacheRedis === true) {
+			await cacheRedis.quitAsync();
+		}
 	}
 
 	start().catch(error => {
@@ -580,6 +651,19 @@ function hostService({
 	const log = createLog("host");
 
 	log.trace(
+		"create redis appender..."
+	);
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = "livelog";
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
+
+	log.trace(
 		"require aws-sdk..."
 	);
 
@@ -599,15 +683,6 @@ function hostService({
 
 	const sqs = new aws.SQS(
 		config.sqsOptions
-	);
-
-	const redisAppender = new RedisAppender();
-	redisAppender.app = name;
-	redisAppender.env = env;
-	redisAppender.channel = "livelog";
-
-	simpleLogService.appenders.push(
-		redisAppender
 	);
 
 	const da = new DataAccess();
