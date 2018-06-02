@@ -21,7 +21,7 @@ class SimpleLogService {
 
 		for (const appender of appenders) {
 
-			appenders[i].append(
+			appender.append(
 				app,
 				env,
 				category,
