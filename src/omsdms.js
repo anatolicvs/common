@@ -352,15 +352,6 @@ function hostAPI({
 		"create redis appender..."
 	);
 
-	const redisAppender = new RedisAppender();
-	redisAppender.app = name;
-	redisAppender.env = env;
-	redisAppender.channel = "livelog";
-
-	simpleLogService.appenders.push(
-		redisAppender
-	);
-
 	//
 
 	let ddb;
@@ -504,6 +495,15 @@ function hostAPI({
 	process.on("unhandledRejection", error => {
 		log.error("unhandled rejection:", error);
 	});
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = `${env}.livelog`;
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
 
 	let socketCount = 0;
 
@@ -654,15 +654,6 @@ function hostService({
 		"create redis appender..."
 	);
 
-	const redisAppender = new RedisAppender();
-	redisAppender.app = name;
-	redisAppender.env = env;
-	redisAppender.channel = "livelog";
-
-	simpleLogService.appenders.push(
-		redisAppender
-	);
-
 	log.trace(
 		"require aws-sdk..."
 	);
@@ -784,6 +775,15 @@ function hostService({
 	process.on("unhandledRejection", error => {
 		log.error("unhandled rejection:", error);
 	});
+
+	const redisAppender = new RedisAppender();
+	redisAppender.app = name;
+	redisAppender.env = env;
+	redisAppender.channel = `${env}.livelog`;
+
+	simpleLogService.appenders.push(
+		redisAppender
+	);
 
 	let socketCount = 0;
 

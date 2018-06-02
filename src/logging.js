@@ -13,13 +13,29 @@ class SimpleLogService {
 		const ts = tools.ts();
 		const message = tools.format(...args);
 
-		const appenders = this.appenders;
-		for (let i = 0, length = appenders.length; i < length; i++) {
-			appenders[i].append(ts, category, level, message, args);
+		const {
+			app,
+			env,
+			appenders
+		} = this;
+
+		for (const appender of appenders) {
+
+			appenders[i].append(
+				app,
+				env,
+				category,
+				ts,
+				level,
+				message,
+				args
+			);
 		}
 	}
 }
 
+SimpleLogService.prototype.app = null;
+SimpleLogService.prototype.env = null;
 SimpleLogService.prototype.appenders = null;
 
 class Log {
@@ -212,14 +228,14 @@ class StdoutAppender {
 		}
 	}
 
-	append(ts, category, level, message, args) {
+	append(app, env, category, ts, level, message, args) {
 
 		if (level < this.max) {
 
 			const stdout = process.stdout;
 
 			if (stdout.isTTY) {
-				stdout.write(`${this.getTitleEscape(level)}${new Date(ts).toISOString()} ${this.getName(level)} ${category}\x1b[0m ${this.getBodyEscape(level)}${message}\x1b[0m${os.EOL}`);
+				stdout.write(`${this.getTitleEscape(level)}${app} ${category}\x1b[0m ${this.getBodyEscape(level)}${message}\x1b[0m${os.EOL}`);
 			}
 			else {
 				stdout.write(`${new Date(ts).toISOString()} ${this.getName(level)} ${category} ${message}${os.EOL}`);
@@ -232,23 +248,21 @@ StdoutAppender.prototype.max = Infinity;
 
 class RedisAppender {
 
-	append(ts, category, level, message, args) {
+	append(app, env, category, ts, level, message, args) {
 
 		const redis = this.redis;
 
 		if (redis.connected) {
 
 			const {
-				app,
-				env,
 				channel
 			} = this;
 
 			const json = JSON.stringify({
-				ts,
 				app,
 				env,
 				category,
+				ts,
 				level,
 				message
 			});
@@ -260,14 +274,12 @@ class RedisAppender {
 	}
 }
 
-RedisAppender.prototype.app = null;
-RedisAppender.prototype.env = null;
 RedisAppender.prototype.channel = null;
 RedisAppender.prototype.redis = null;
 
 class DynamoDbAppender {
 
-	append(ts, category, level, message, args) {
+	append(app, env, category, ts, level, message, args) {
 
 		if (this.level < level) {
 		}
@@ -275,8 +287,10 @@ class DynamoDbAppender {
 			this.ddb.put({
 				TableName: this.tableName,
 				Item: {
-					ts,
+					app,
+					env,
 					category,
+					ts,
 					level,
 					message
 				}
