@@ -350,55 +350,18 @@ class RequestGateway {
 
 			const invocationHeaders = {};
 
-			//if (async === undefined)
-			{
+			let data;
+			try {
+				data = await instance[methodName](
+					{ principalId },
+					body
+				);
+			}
+			catch (error) {
 
-				let data;
-				try {
-					data = await instance[methodName](
-						{ principalId },
-						body
-					);
-				}
-				catch (error) {
-
-					log.warn(
-						error
-					);
-
-					if (response.finished) {
-						// ok
-					}
-					else if (response.headersSent) {
-						response.end();
-					}
-					else {
-
-						let code;
-						const faults = handler.faults;
-						if (faults === undefined) {
-							code = "internal-error";
-						}
-						else {
-							const fault = faults[error.message];
-							if (fault === undefined) {
-								code = "internal-error";
-							}
-							else if (fault === null) {
-								code = error.message;
-							}
-							else {
-								code = fault;
-							}
-						}
-
-						fault(code);
-					}
-
-					return;
-				}
-
-				// check response
+				log.warn(
+					error
+				);
 
 				if (response.finished) {
 					// ok
@@ -408,186 +371,74 @@ class RequestGateway {
 				}
 				else {
 
-					if (handler.response === undefined) {
+					let code;
+					const faults = handler.faults;
+					if (faults === undefined) {
+						code = "internal-error";
+					}
+					else {
+						const fault = faults[error.message];
+						if (fault === undefined) {
+							code = "internal-error";
+						}
+						else if (fault === null) {
+							code = error.message;
+						}
+						else {
+							code = fault;
+						}
+					}
+
+					fault(code);
+				}
+
+				return;
+			}
+
+			// check response
+
+			if (response.finished) {
+				// ok
+			}
+			else if (response.headersSent) {
+				response.end();
+			}
+			else {
+
+				if (handler.response === undefined) {
+					ok(data);
+				}
+				else {
+
+					const errors = validate(
+						handler.response,
+						data,
+						"response"
+					);
+
+					if (errors === undefined) {
 						ok(data);
 					}
 					else {
-
-						const errors = validate(
-							handler.response,
-							data,
-							"response"
-						);
-
-						if (errors === undefined) {
-							ok(data);
-						}
-						else {
-							fault("internal-error");
-						}
+						fault("internal-error");
 					}
 				}
 			}
-			// else {
-
-			// 	if (requestService === null) {
-			// 		throw new Error();
-			// 	}
-
-			// 	if (principalId === undefined) {
-			// 		throw new Error();
-			// 	}
-
-			// 	const {
-			// 		serviceId,
-			// 		action
-			// 	} = handler;
-
-			// 	const {
-			// 		requestId
-			// 	} = await requestService.beginRequest({
-			// 		principalId,
-			// 		serviceId,
-			// 		action
-			// 	});
-
-			// 	ok({
-			// 		requestId
-			// 	});
-
-			// 	let data;
-			// 	try {
-			// 		data = await instance[methodName](
-			// 			{ principalId, requestId },
-			// 			body
-			// 		);
-			// 	}
-			// 	catch (error) {
-
-			// 		log.warn(
-			// 			error
-			// 		);
-
-			// 		let code;
-			// 		const faults = handler.faults;
-			// 		if (faults === undefined) {
-			// 			code = "internal-error";
-			// 		}
-			// 		else {
-			// 			const fault = faults[error.message];
-			// 			if (fault === undefined) {
-			// 				code = "internal-error";
-			// 			}
-			// 			else if (fault === null) {
-			// 				code = error.message;
-			// 			}
-			// 			else {
-			// 				code = fault;
-			// 			}
-			// 		}
-
-			// 		await requestService.completeRequest({
-			// 			requestId,
-			// 			code
-			// 		});
-
-			// 		return;
-			// 	}
-
-			// 	if (data === undefined) {
-			// 		// ok
-			// 	}
-			// 	else {
-
-			// 		if (handler.response === undefined) {
-
-			// 			await requestService.completeRequest({
-			// 				requestId,
-			// 				code: "ok",
-			// 				data
-			// 			});
-			// 		}
-			// 		else {
-
-			// 			const errors = validate(
-			// 				handler.response,
-			// 				data,
-			// 				"response"
-			// 			);
-
-			// 			if (errors === undefined) {
-
-			// 				await requestService.completeRequest({
-			// 					requestId,
-			// 					code: "ok",
-			// 					data
-			// 				});
-			// 			}
-			// 			else {
-
-			// 				await requestService.completeRequest({
-			// 					requestId,
-			// 					code: "internal-error"
-			// 				});
-			// 			}
-			// 		}
-			// 	}
-			// }
-
 		}
 		else {
 
-			//const async = handler.async;
+			let data;
+			try {
+				data = await handler.handle(
+					request,
+					response
+				);
+			}
+			catch (error) {
 
-			//if (async === undefined)
-			{
-
-				let data;
-				try {
-					data = await handler.handle(
-						request,
-						response
-					);
-				}
-				catch (error) {
-
-					log.warn(
-						error
-					);
-
-					if (response.finished) {
-						// ok
-					}
-					else if (response.headersSent) {
-						response.end();
-					}
-					else {
-
-						let code;
-						const faults = handler.faults;
-						if (faults === undefined) {
-							code = "internal-error";
-						}
-						else {
-							const fault = faults[error.message];
-							if (fault === undefined) {
-								code = "internal-error";
-							}
-							else if (fault === null) {
-								code = error.message;
-							}
-							else {
-								code = fault;
-							}
-						}
-
-						fault(code);
-					}
-
-					return;
-				}
-
-				// check response
+				log.warn(
+					error
+				);
 
 				if (response.finished) {
 					// ok
@@ -597,132 +448,59 @@ class RequestGateway {
 				}
 				else {
 
-					if (handler.response === undefined) {
+					let code;
+					const faults = handler.faults;
+					if (faults === undefined) {
+						code = "internal-error";
+					}
+					else {
+						const fault = faults[error.message];
+						if (fault === undefined) {
+							code = "internal-error";
+						}
+						else if (fault === null) {
+							code = error.message;
+						}
+						else {
+							code = fault;
+						}
+					}
+
+					fault(code);
+				}
+
+				return;
+			}
+
+			// check response
+
+			if (response.finished) {
+				// ok
+			}
+			else if (response.headersSent) {
+				response.end();
+			}
+			else {
+
+				if (handler.response === undefined) {
+					ok(data);
+				}
+				else {
+
+					const errors = validate(
+						handler.response,
+						data,
+						"response"
+					);
+
+					if (errors === undefined) {
 						ok(data);
 					}
 					else {
-
-						const errors = validate(
-							handler.response,
-							data,
-							"response"
-						);
-
-						if (errors === undefined) {
-							ok(data);
-						}
-						else {
-							fault("internal-error");
-						}
+						fault("internal-error");
 					}
 				}
 			}
-			// else {
-
-			// 	if (requestService === null) {
-			// 		throw new Error();
-			// 	}
-
-			// 	if (principalId === undefined) {
-			// 		throw new Error();
-			// 	}
-
-			// 	const {
-			// 		serviceId,
-			// 		action
-			// 	} = handler;
-
-			// 	const {
-			// 		requestId
-			// 	} = await requestService.beginRequest({
-			// 		principalId,
-			// 		serviceId,
-			// 		action
-			// 	});
-
-			// 	ok({
-			// 		requestId
-			// 	});
-
-			// 	request.requestId = requestId;
-
-			// 	let data;
-			// 	try {
-			// 		data = await handler.handle(
-			// 			request
-			// 		);
-			// 	}
-			// 	catch (error) {
-
-			// 		log.warn(
-			// 			error
-			// 		);
-
-			// 		let code;
-			// 		const faults = handler.faults;
-			// 		if (faults === undefined) {
-			// 			code = "internal-error";
-			// 		}
-			// 		else {
-			// 			const fault = faults[error.message];
-			// 			if (fault === undefined) {
-			// 				code = "internal-error";
-			// 			}
-			// 			else if (fault === null) {
-			// 				code = error.message;
-			// 			}
-			// 			else {
-			// 				code = fault;
-			// 			}
-			// 		}
-
-			// 		await requestService.completeRequest({
-			// 			requestId,
-			// 			code
-			// 		});
-
-			// 		return;
-			// 	}
-
-			// 	if (data === undefined) {
-			// 		// ok
-			// 	}
-			// 	else {
-
-			// 		if (handler.response === undefined) {
-
-			// 			await requestService.completeRequest({
-			// 				requestId,
-			// 				code: "ok",
-			// 				data
-			// 			});
-			// 		}
-			// 		else {
-
-			// 			const errors = validate(
-			// 				handler.response,
-			// 				data,
-			// 				"response"
-			// 			);
-
-			// 			if (errors === undefined) {
-
-			// 				await requestService.completeRequest({
-			// 					requestId,
-			// 					code: "ok",
-			// 					data
-			// 				});
-			// 			}
-			// 			else {
-
-			// 				await requestService.completeRequest({
-			// 					requestId,
-			// 					code: "internal-error"
-			// 				});
-			// 			}
-			// 		}
-			// 	}
-			// }
 		}
 	}
 }
@@ -730,7 +508,6 @@ class RequestGateway {
 RequestGateway.prototype.log = null;
 RequestGateway.prototype.api = null;
 RequestGateway.prototype.authorizationService = null;
-//RequestGateway.prototype.requestService = null;
 RequestGateway.prototype.instances = null;
 
 module.exports = {
