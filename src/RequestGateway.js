@@ -359,32 +359,57 @@ class RequestGateway {
 			}
 			catch (error) {
 
-				log.warn(
-					error
-				);
-
 				if (response.finished) {
-					// ok
+
+					log.warn(
+						error
+					);
 				}
 				else if (response.headersSent) {
+
 					response.end();
+
+					log.warn(
+						error
+					);
 				}
 				else {
 
 					let code;
 					const faults = handler.faults;
 					if (faults === undefined) {
+
+						log.warn(
+							error
+						);
+
 						code = "internal-error";
 					}
 					else {
+
 						const fault = faults[error.message];
 						if (fault === undefined) {
+
+							log.warn(
+								error
+							);
+
 							code = "internal-error";
 						}
 						else if (fault === null) {
+
+							log.warn(
+								error.message
+							);
+
 							code = error.message;
 						}
 						else {
+
+							log.warn(
+								fault
+							);
+
 							code = fault;
 						}
 					}
