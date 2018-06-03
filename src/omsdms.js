@@ -1,6 +1,7 @@
 "use strict";
 const fs = require("fs");
 const http = require("http");
+const { randomBytes } = require("crypto");
 // const aws = require("aws-sdk");
 
 const tools = require("./tools");
@@ -738,6 +739,30 @@ function hostService({
 		OPTIONS: {
 		}
 	};
+
+	for (const endpoint of api.endpoints) {
+
+		const sqsBinding = endpoint.sqs;
+		if (sqsBinding === undefined) {
+			// ok
+		}
+		else {
+
+			endpoint.handle2 = function (headers, content) {
+
+				return sqs.sendMessage({
+					QueueUrl: config.queue,
+					MessageGroupId: content[sqsBinding.group],
+					MessageBody: JSON.stringify({
+						type: sqsBinding[type],
+						headers,
+						content
+					}),
+					MessageDeduplicationId: randomBytes(32).toString("hex")
+				}).promise();
+			}
+		}
+	}
 
 	const requestGateway = new RequestGateway();
 	requestGateway.log = createLog("request-gateway");

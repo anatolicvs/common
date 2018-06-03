@@ -340,44 +340,71 @@ class RequestGateway {
 
 		// invoke
 
-		if (handler.handle === undefined) {
+		let data;
+		try {
 
-			const instanceName = handler.instance;
-			const instance = instances[instanceName];
+			if (handler.handle2 !== undefined) {
 
-			const methodName = handler.method;
-			//const async = handler.async;
+				data = await handler.handle2(
+					{ principalId },
+					body
+				);
+			}
+			else if (handler.handle !== undefined) {
 
-			const invocationHeaders = {};
+				data = await handler.handle(
+					request,
+					response
+				);
+			}
+			else {
 
-			let data;
-			try {
+				const instanceName = handler.instance;
+				const instance = instances[instanceName];
+
+				const methodName = handler.method;
+				//const async = handler.async;
+
+				const invocationHeaders = {};
+
 				data = await instance[methodName](
 					{ principalId },
 					body
 				);
 			}
-			catch (error) {
+		}
+		catch (error) {
 
-				if (response.finished) {
+			if (response.finished) {
+
+				log.warn(
+					error
+				);
+			}
+			else if (response.headersSent) {
+
+				response.end();
+
+				log.warn(
+					error
+				);
+			}
+			else {
+
+				let code;
+				const faults = handler.faults;
+				if (faults === undefined) {
 
 					log.warn(
 						error
 					);
-				}
-				else if (response.headersSent) {
 
-					response.end();
-
-					log.warn(
-						error
-					);
+					code = "internal-error";
 				}
 				else {
 
-					let code;
-					const faults = handler.faults;
-					if (faults === undefined) {
+					const fault = faults[error.message];
+					if (fault === undefined) {
 
 						log.warn(
 							error
@@ -385,145 +412,56 @@ class RequestGateway {
 
 						code = "internal-error";
 					}
-					else {
+					else if (fault === null) {
 
-						const fault = faults[error.message];
-						if (fault === undefined) {
+						log.warn(
+							error.message
+						);
 
-							log.warn(
-								error
-							);
-
-							code = "internal-error";
-						}
-						else if (fault === null) {
-
-							log.warn(
-								error.message
-							);
-
-							code = error.message;
-						}
-						else {
-
-							log.warn(
-								fault
-							);
-
-							code = fault;
-						}
-					}
-
-					fault(code);
-				}
-
-				return;
-			}
-
-			// check response
-
-			if (response.finished) {
-				// ok
-			}
-			else if (response.headersSent) {
-				response.end();
-			}
-			else {
-
-				if (handler.response === undefined) {
-					ok(data);
-				}
-				else {
-
-					const errors = validate(
-						handler.response,
-						data,
-						"response"
-					);
-
-					if (errors === undefined) {
-						ok(data);
+						code = error.message;
 					}
 					else {
-						fault("internal-error");
+
+						log.warn(
+							fault
+						);
+
+						code = fault;
 					}
 				}
+
+				fault(code);
 			}
+
+			return;
+		}
+
+		// check response
+
+		if (response.finished) {
+			// ok
+		}
+		else if (response.headersSent) {
+			response.end();
 		}
 		else {
 
-			let data;
-			try {
-				data = await handler.handle(
-					request,
-					response
-				);
-			}
-			catch (error) {
-
-				log.warn(
-					error
-				);
-
-				if (response.finished) {
-					// ok
-				}
-				else if (response.headersSent) {
-					response.end();
-				}
-				else {
-
-					let code;
-					const faults = handler.faults;
-					if (faults === undefined) {
-						code = "internal-error";
-					}
-					else {
-						const fault = faults[error.message];
-						if (fault === undefined) {
-							code = "internal-error";
-						}
-						else if (fault === null) {
-							code = error.message;
-						}
-						else {
-							code = fault;
-						}
-					}
-
-					fault(code);
-				}
-
-				return;
-			}
-
-			// check response
-
-			if (response.finished) {
-				// ok
-			}
-			else if (response.headersSent) {
-				response.end();
+			if (handler.response === undefined) {
+				ok(data);
 			}
 			else {
 
-				if (handler.response === undefined) {
+				const errors = validate(
+					handler.response,
+					data,
+					"response"
+				);
+
+				if (errors === undefined) {
 					ok(data);
 				}
 				else {
-
-					const errors = validate(
-						handler.response,
-						data,
-						"response"
-					);
-
-					if (errors === undefined) {
-						ok(data);
-					}
-					else {
-						fault("internal-error");
-					}
+					fault("internal-error");
 				}
 			}
 		}
