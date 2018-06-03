@@ -740,9 +740,11 @@ function hostService({
 		}
 	};
 
-	for (const endpoint of api.endpoints) {
+	for (const path in api.endpoints) {
 
+		const endpoint = api.endpoints[path];
 		const sqsBinding = endpoint.sqs;
+
 		if (sqsBinding === undefined) {
 			// ok
 		}
@@ -752,9 +754,9 @@ function hostService({
 
 				return sqs.sendMessage({
 					QueueUrl: config.queue,
-					MessageGroupId: content[sqsBinding.group],
+					MessageGroupId: content[this.sqs.group],
 					MessageBody: JSON.stringify({
-						type: sqsBinding[type],
+						type: this.sqs[type],
 						headers,
 						content
 					}),
