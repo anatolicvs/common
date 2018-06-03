@@ -756,7 +756,7 @@ function hostService({
 					QueueUrl: config.queue,
 					MessageGroupId: content[this.sqs.group],
 					MessageBody: JSON.stringify({
-						type: this.sqs[type],
+						type: this.sqs.type,
 						headers,
 						content
 					}),
