@@ -750,9 +750,9 @@ function hostService({
 		}
 		else {
 
-			endpoint.handle2 = function (headers, content) {
+			endpoint.handle2 = async function (headers, content) {
 
-				return sqs.sendMessage({
+				await sqs.sendMessage({
 					QueueUrl: config.queue,
 					MessageGroupId: content[this.sqs.group],
 					MessageBody: JSON.stringify({
