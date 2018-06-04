@@ -1309,7 +1309,7 @@ function hostWorker({
 	const redisAppender = new RedisAppender();
 	redisAppender.app = name;
 	redisAppender.env = env;
-	redisAppender.channel = "livelog";
+	redisAppender.channel = `${env}.livelog`;
 
 	simpleLogService.appenders.push(
 		redisAppender
