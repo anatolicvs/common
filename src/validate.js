@@ -476,16 +476,6 @@ function validate(schema, instance, name) {
 
 			if (typeof schema === "string") {
 
-				if (instance === undefined) {
-
-					report(
-						"%s is required.",
-						name
-					);
-
-					continue;
-				}
-
 				const defaultSchema = aliases[schema];
 
 				if (defaultSchema === undefined) {
@@ -540,16 +530,12 @@ function validate(schema, instance, name) {
 
 				if (instance === undefined) {
 
-					const { required } = schema;
+					if (schema.required === true) {
 
-					if (required === true) {
 						report(
 							"%s is required.",
 							name
 						);
-					}
-					else {
-						// ok
 					}
 
 					continue;

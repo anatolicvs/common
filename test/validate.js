@@ -38,6 +38,19 @@ const scenarios = [
 	{ schema: "trimmed", instance: "\na", response: ['$ ("\\na") is not a "trimmed".'] },
 	{ schema: "trimmed", instance: "\na\n", response: ['$ ("\\na\\n") is not a "trimmed".'] },
 
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
+				name: "otrimmed"
+			}
+		},
+		instance: {
+			type: 123
+		}
+	},
+
 	{ schema: { type: "constant", value: "abc" }, instance: "abc" },
 	{ schema: { type: "constant", value: 123 }, instance: 123 },
 

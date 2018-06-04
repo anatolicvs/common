@@ -3,127 +3,22 @@ const { parse: parseUrl } = require("url");
 const http = require("http");
 const https = require("https");
 
-// class HttpClient {
-
-//     request(method, path, requestContent) {
-
-//         return new Promise((resolve, reject) => {
-
-//             let requestPayload;
-
-//             if (requestContent === undefined) {
-//                 // ok
-//             }
-//             else {
-
-//                 requestPayload = Buffer.from(JSON.stringify(requestContent), "utf8");
-//             }
-
-//             const urlInfo = parseUrl(
-//                 `${this.baseUrl}${path}`
-//             );
-
-//             const lib = urlInfo.protocol === "https:" ? https : http;
-
-//             const options = {
-//                 protocol: urlInfo.protocol,
-//                 hostname: urlInfo.hostname,
-//                 port: urlInfo.port,
-//                 method,
-//                 path: urlInfo.path
-//             };
-
-//             if (requestPayload === undefined) {
-//                 // ok
-//             }
-//             else {
-//                 options.headers = {
-//                     "Content-Type": "application/json; charset=utf-8",
-//                     "Content-Length": `${requestPayload.length}`
-//                 };
-//             }
-
-//             const request = lib.request(
-//                 options
-//             );
-
-//             request.once("response", response => {
-
-//                 const chunks = [];
-
-//                 response.on("data", chunk => {
-//                     chunks.push(chunk);
-//                 });
-
-//                 response.once("error", error => {
-//                     reject(error);
-//                 });
-
-//                 response.once("end", () => {
-
-//                     if (0 < chunks.length) {
-
-//                         const responseContent = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-//                         resolve(responseContent);
-//                     }
-//                     else {
-//                         resolve();
-//                     }
-//                 });
-//             });
-
-//             request.once("error", error => {
-//                 reject(error);
-//             });
-
-//             if (requestPayload === undefined) {
-//                 request.end();
-//             }
-//             else {
-//                 request.end(
-//                     requestPayload
-//                 );
-//             }
-//         });
-//     }
-
-//     get(path, content) {
-
-//         return this.request("GET", path, content);
-//     }
-
-//     post(path, content) {
-
-//         return this.request("POST", path, content);
-//     }
-
-//     delete(path) {
-
-//         return this.request("DELETE", path);
-//     }
-
-//     put(path, content) {
-
-//         return this.request("PUT", path, content);
-//     }
-// }
-
-// HttpClient.prototype.baseUrl = null;
-
 class HttpClient {
 
     request(method, path, requestContent) {
 
         return new Promise((resolve, reject) => {
 
-            let requestPayload;
+            let requestBuffer;
+            let requestString;
 
             if (requestContent === undefined) {
                 // ok
             }
             else {
 
-                requestPayload = Buffer.from(JSON.stringify(requestContent), "utf8");
+                requestString = JSON.stringify(requestContent);
+                requestBuffer = Buffer.from(requestString, "utf8");
             }
 
             const urlInfo = parseUrl(
@@ -140,13 +35,13 @@ class HttpClient {
                 path: urlInfo.path
             };
 
-            if (requestPayload === undefined) {
+            if (requestBuffer === undefined) {
                 // ok
             }
             else {
                 options.headers = {
                     "Content-Type": "application/json; charset=utf-8",
-                    "Content-Length": `${requestPayload.length}`
+                    "Content-Length": `${requestBuffer.length}`
                 };
             }
 
@@ -168,21 +63,32 @@ class HttpClient {
 
                 response.once("end", () => {
 
-                    let contentBuffer;
+                    let responseBuffer;
                     let contentString;
                     let content;
 
                     if (0 < chunks.length) {
 
-                        contentBuffer = Buffer.concat(chunks);
+                        responseBuffer = Buffer.concat(
+                            chunks
+                        );
 
                         // TODO: if utf8
-                        contentString = contentBuffer.toString("utf8");
+                        contentString = responseBuffer.toString("utf8");
+
+                        if (this.logResponseContent === true) {
+
+                            this.log.debug(
+                                contentString
+                            );
+                        }
 
                         // TODO: if json
                         try {
 
-                            content = JSON.parse(contentString);
+                            content = JSON.parse(
+                                contentString
+                            );
                         }
                         catch (error) {
 
@@ -191,7 +97,7 @@ class HttpClient {
 
                     resolve({
                         statusCode: response.statusCode,
-                        contentBuffer,
+                        responseBuffer,
                         contentString,
                         content
                     });
@@ -202,12 +108,21 @@ class HttpClient {
                 reject(error);
             });
 
-            if (requestPayload === undefined) {
+            if (requestContent === undefined) {
+
                 request.end();
             }
             else {
+
+                if (this.logRequestContent === true) {
+
+                    this.log.debug(
+                        requestString
+                    );
+                }
+
                 request.end(
-                    requestPayload
+                    requestBuffer
                 );
             }
         });
@@ -234,7 +149,10 @@ class HttpClient {
     }
 }
 
+HttpClient.prototype.log = null;
 HttpClient.prototype.baseUrl = null;
+HttpClient.prototype.logRequestContent = false;
+HttpClient.prototype.logResponseContent = false;
 
 module.exports = {
     HttpClient
