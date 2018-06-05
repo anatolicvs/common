@@ -43,6 +43,72 @@ const scenarios = [
 			type: "object",
 			required: true,
 			properties: {
+				name: "code"
+			}
+		},
+		instance: {
+		},
+		response: ['$.name is required.']
+	},
+
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
+				name: "ocode"
+			}
+		},
+		instance: {
+		}
+	},
+
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
+				name: "ocode"
+			}
+		},
+		instance: {
+			name: "test"
+		}
+	},
+
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
+				name: "ocode"
+			}
+		},
+		instance: {
+			name: 123
+		},
+		response: ['$.name (123) is not a string.']
+	},
+
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
+				name: "ocode"
+			}
+		},
+		instance: {
+			name: ""
+		},
+		response: ['$.name ("") is not a "code".']
+	},
+
+	{
+		schema: {
+			type: "object",
+			required: true,
+			properties: {
 				name: "otrimmed"
 			}
 		},
