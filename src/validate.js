@@ -168,7 +168,7 @@ function validate(schema, instance, name) {
 			return;
 		}
 
-		if (Array.isArray(instance)) {
+		if (isArray(instance)) {
 
 			report(
 				"%s (%j) is not an object.",
@@ -202,7 +202,7 @@ function validate(schema, instance, name) {
 
 	function validateSchemaArray(instance, name, schema) {
 
-		if (Array.isArray(instance)) {
+		if (isArray(instance)) {
 			// ok
 		}
 		else {
