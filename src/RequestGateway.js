@@ -150,13 +150,6 @@ class RequestGateway {
 			rawHeaders
 		} = request;
 
-		log.debug(
-			"%s %s %j",
-			requestMethod,
-			url,
-			rawHeaders
-		);
-
 		// handler fields
 		let authorize;
 		let cors;
@@ -273,7 +266,10 @@ class RequestGateway {
 		}
 
 		log.debug(
-			"body: %j",
+			"%s %s %j %j",
+			requestMethod,
+			url,
+			rawHeaders,
 			body
 		);
 
