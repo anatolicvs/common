@@ -265,6 +265,11 @@ class RequestGateway {
 			}
 		}
 
+		log.debug(
+			"body: %j",
+			body
+		);
+
 		// validate request
 
 		if (requestSchema === undefined) {

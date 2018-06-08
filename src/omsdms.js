@@ -1149,8 +1149,10 @@ class Worker {
 			const instance = this.instances[instanceName];
 
 			this.log.trace(
-				"process message %j...",
-				messageId
+				"process message %s %s...",
+				messageId,
+				body
+
 			);
 
 			try {
