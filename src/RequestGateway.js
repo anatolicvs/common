@@ -265,13 +265,13 @@ class RequestGateway {
 			}
 		}
 
-		log.debug(
-			"%s %s %j %j",
-			requestMethod,
-			url,
-			rawHeaders,
-			body
-		);
+		// log.debug(
+		// 	"%s %s %j %j",
+		// 	requestMethod,
+		// 	url,
+		// 	rawHeaders,
+		// 	body
+		// );
 
 		// validate request
 

@@ -23,5 +23,6 @@ module.exports = {
 	...require("./src/validate"),
 	...require("./src/transform"),
 	...require("./src/JWTService"),
-	...require("./src/RequestGateway")
+	...require("./src/RequestGateway"),
+	...require("./src/BotService")
 };

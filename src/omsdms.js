@@ -932,7 +932,16 @@ class Worker {
 			}
 			catch (error) {
 
-				this.log.warn("cannot receive message:", error);
+				switch (error.code) {
+
+					case "AWS.SimpleQueueService.NonExistentQueue":
+						this.log.warn(error.message);
+						break;
+
+					default:
+						this.log.warn("cannot receive message:", error);
+						break;
+				}
 
 				await tools.delay(30 * 1000);
 				continue;
