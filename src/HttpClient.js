@@ -21,8 +21,9 @@ class HttpClient {
                 requestBuffer = Buffer.from(requestString, "utf8");
             }
 
+            const url = `${this.baseUrl}${path}`;
             const urlInfo = parseUrl(
-                `${this.baseUrl}${path}`
+                url
             );
 
             const lib = urlInfo.protocol === "https:" ? https : http;
@@ -79,6 +80,8 @@ class HttpClient {
                         if (this.logResponseContent === true) {
 
                             this.log.debug(
+                                "url:%s, response:%s",
+                                url,
                                 contentString
                             );
                         }
@@ -117,6 +120,8 @@ class HttpClient {
                 if (this.logRequestContent === true) {
 
                     this.log.debug(
+                        "url:%s, request:%s",
+                        url,
                         requestString
                     );
                 }
