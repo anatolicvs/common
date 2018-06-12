@@ -1184,6 +1184,7 @@ class Worker {
 				else {
 
 					this.log.warn(error);
+					throw new Error("retry");
 				}
 			}
 		}
