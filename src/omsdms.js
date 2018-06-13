@@ -938,6 +938,10 @@ class Worker {
 						this.log.warn(error.message);
 						break;
 
+					case "UnknownEndpoint":
+						this.log.warn(error.message);
+						break;
+
 					default:
 						this.log.warn("cannot receive message:", error);
 						break;

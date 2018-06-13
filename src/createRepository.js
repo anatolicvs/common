@@ -413,6 +413,29 @@ function createRepository(request) {
 
 					break;
 
+				case "scan-cached-versioned":
+
+					if (ttl === undefined) {
+						throw new Error();
+					}
+
+					if (versionName === undefined) {
+						throw new Error();
+					}
+
+					prototype[methodName] = function () {
+
+						return this.da.scanCachedVersioned(
+							ttl,
+							tableName,
+							hashName,
+							rangeName,
+							versionName
+						);
+					};
+
+					break;
+
 				case "get-cached":
 
 					if (ttl === undefined) {
