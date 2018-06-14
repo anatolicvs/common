@@ -6,6 +6,9 @@ class RequestGateway {
 
 	async onRequest(request, response) {
 
+		// start timing
+		const time = hrtime();
+
 		function ok(data) {
 
 			respond(
@@ -47,6 +50,23 @@ class RequestGateway {
 			response.setHeader(
 				"Content-Length",
 				`${payload.length}`
+			);
+
+			responseEnd(
+				payload
+			);
+		}
+
+		function responseEnd(payload) {
+
+			// log timing
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			this.log.trace(
+				"%s %s",
+				url,
+				elapsed
 			);
 
 			response.end(
@@ -391,7 +411,7 @@ class RequestGateway {
 			}
 			else if (response.headersSent) {
 
-				response.end();
+				responseEnd();
 
 				log.warn(
 					error
@@ -450,7 +470,7 @@ class RequestGateway {
 			// ok
 		}
 		else if (response.headersSent) {
-			response.end();
+			responseEnd();
 		}
 		else {
 
