@@ -183,7 +183,7 @@ class RequestGateway {
 		if (table === undefined) {
 
 			log.warn(
-				"%s %s %j",
+				"%s %s %j -> table is not found.",
 				requestMethod,
 				url,
 				rawHeaders
@@ -209,7 +209,7 @@ class RequestGateway {
 		if (handler === undefined) {
 
 			log.warn(
-				"%s %s %j",
+				"%s %s %j -> handler is not found.",
 				requestMethod,
 				url,
 				rawHeaders
