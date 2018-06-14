@@ -64,7 +64,7 @@ class RequestGateway {
 			const [s, ns] = hrtime(time);
 			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
 
-			this.log.trace(
+			log.trace(
 				"%s %s",
 				url,
 				elapsed
