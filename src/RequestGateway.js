@@ -1,6 +1,7 @@
 "use strict";
 const { parse: parseUrl } = require("url");
 const { validate } = require("./validate");
+const { hrtime } = process;
 
 class RequestGateway {
 
