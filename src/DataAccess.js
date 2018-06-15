@@ -269,6 +269,8 @@ class DataAccess {
 						ttl
 					);
 
+					// clear indices
+
 					// no need to wait
 					multi.exec((error, reply) => {
 

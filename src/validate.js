@@ -6,7 +6,9 @@ const { isInteger, isFinite, isNaN } = Number;
 const regexpCache = {};
 
 const coderegex = /^(?=.{1,1024}$)([0-9a-zçğıöşü]+([-_.][0-9a-zçğıöşü]+)*)$/;
+
 const trimmedregex = /^\S+($|[\s\S]*\S$)/;
+const etrimmedregex = /^($|\S+($|[\s\S]*\S$))/;
 
 const aliases = {
 	"object": {
@@ -40,6 +42,17 @@ const aliases = {
 		type: "string",
 		pattern: trimmedregex.source,
 		patternName: "trimmed"
+	},
+	"etrimmed": {
+		type: "string",
+		required: true,
+		pattern: etrimmedregex.source,
+		patternName: "etrimmed"
+	},
+	"oetrimmed": {
+		type: "string",
+		pattern: etrimmedregex.source,
+		patternName: "etrimmed"
 	},
 	"code": {
 		type: "string",

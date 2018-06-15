@@ -30,6 +30,8 @@ const scenarios = [
 	{ schema: "trimmed", instance: "aa aaa" },
 	{ schema: "trimmed", instance: "aaa aaa" },
 
+	{ schema: "trimmed", instance: "", response: ['$ ("") is not a "trimmed".'] },
+
 	{ schema: "trimmed", instance: "a ", response: ['$ ("a ") is not a "trimmed".'] },
 	{ schema: "trimmed", instance: " a", response: ['$ (" a") is not a "trimmed".'] },
 	{ schema: "trimmed", instance: " a ", response: ['$ (" a ") is not a "trimmed".'] },
@@ -37,6 +39,61 @@ const scenarios = [
 	{ schema: "trimmed", instance: "a\n", response: ['$ ("a\\n") is not a "trimmed".'] },
 	{ schema: "trimmed", instance: "\na", response: ['$ ("\\na") is not a "trimmed".'] },
 	{ schema: "trimmed", instance: "\na\n", response: ['$ ("\\na\\n") is not a "trimmed".'] },
+
+	{ schema: "trimmed", instance: "aa ", response: ['$ ("aa ") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " aa", response: ['$ (" aa") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " aa ", response: ['$ (" aa ") is not a "trimmed".'] },
+
+	{ schema: "trimmed", instance: "aa\n", response: ['$ ("aa\\n") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\naa", response: ['$ ("\\naa") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\naa\n", response: ['$ ("\\naa\\n") is not a "trimmed".'] },
+
+	{ schema: "trimmed", instance: "a a ", response: ['$ ("a a ") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " a a", response: ['$ (" a a") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: " a a ", response: ['$ (" a a ") is not a "trimmed".'] },
+
+	{ schema: "trimmed", instance: "a a\n", response: ['$ ("a a\\n") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\na a", response: ['$ ("\\na a") is not a "trimmed".'] },
+	{ schema: "trimmed", instance: "\na a\n", response: ['$ ("\\na a\\n") is not a "trimmed".'] },
+
+	{ schema: "etrimmed", instance: "a" },
+	{ schema: "etrimmed", instance: "aa" },
+	{ schema: "etrimmed", instance: "aaa" },
+	{ schema: "etrimmed", instance: "a a" },
+	{ schema: "etrimmed", instance: "aa a" },
+	{ schema: "etrimmed", instance: "aaa a" },
+	{ schema: "etrimmed", instance: "a aa" },
+	{ schema: "etrimmed", instance: "aa aa" },
+	{ schema: "etrimmed", instance: "aaa aa" },
+	{ schema: "etrimmed", instance: "a aaa" },
+	{ schema: "etrimmed", instance: "aa aaa" },
+	{ schema: "etrimmed", instance: "aaa aaa" },
+
+	{ schema: "etrimmed", instance: "" },
+
+	{ schema: "etrimmed", instance: "a ", response: ['$ ("a ") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " a", response: ['$ (" a") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " a ", response: ['$ (" a ") is not a "etrimmed".'] },
+
+	{ schema: "etrimmed", instance: "a\n", response: ['$ ("a\\n") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\na", response: ['$ ("\\na") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\na\n", response: ['$ ("\\na\\n") is not a "etrimmed".'] },
+
+	{ schema: "etrimmed", instance: "aa ", response: ['$ ("aa ") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " aa", response: ['$ (" aa") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " aa ", response: ['$ (" aa ") is not a "etrimmed".'] },
+
+	{ schema: "etrimmed", instance: "aa\n", response: ['$ ("aa\\n") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\naa", response: ['$ ("\\naa") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\naa\n", response: ['$ ("\\naa\\n") is not a "etrimmed".'] },
+
+	{ schema: "etrimmed", instance: "a a ", response: ['$ ("a a ") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " a a", response: ['$ (" a a") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: " a a ", response: ['$ (" a a ") is not a "etrimmed".'] },
+
+	{ schema: "etrimmed", instance: "a a\n", response: ['$ ("a a\\n") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\na a", response: ['$ ("\\na a") is not a "etrimmed".'] },
+	{ schema: "etrimmed", instance: "\na a\n", response: ['$ ("\\na a\\n") is not a "etrimmed".'] },
 
 	{
 		schema: {
