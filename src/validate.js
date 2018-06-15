@@ -81,6 +81,15 @@ const aliases = {
 		type: "number",
 		set: "integer"
 	},
+	"pinteger": {
+		type: "number",
+		required: true,
+		set: "pinteger"
+	},
+	"opinteger": {
+		type: "number",
+		set: "pinteger"
+	},
 	"finite": {
 		type: "number",
 		required: true,
@@ -363,6 +372,38 @@ function validate(schema, instance, name) {
 				else {
 					report(
 						"%s (%j) is not an integer.",
+						name,
+						instance
+					);
+
+					return;
+				}
+
+				break;
+
+			case "pinteger":
+
+				if (isInteger(instance)) {
+					// ok
+				}
+				else {
+
+					report(
+						"%s (%j) is not an integer.",
+						name,
+						instance
+					);
+
+					return;
+				}
+
+				if (0 < instance) {
+					// ok
+				}
+				else {
+
+					report(
+						"%s (%j) is not greater than 0.",
 						name,
 						instance
 					);
