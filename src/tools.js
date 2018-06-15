@@ -452,6 +452,80 @@ function ogetInteger(value, name) {
 	return getInteger(value, name);
 }
 
+function getPositiveInteger(value, name) {
+
+	if (isInteger(value)) {
+
+		if (0 < value) {
+
+			return value;
+		}
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j) is not a positive integer.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j) is not a positive integer.",
+			value
+		)
+	);
+}
+
+function ogetPositiveInteger(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getPositiveInteger(value, name);
+}
+
+function getBoolean(value, name) {
+
+	if (value === true) {
+		return value;
+	}
+
+	if (value === false) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j) is not a boolean.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j) is not a boolean.",
+			value
+		)
+	);
+}
+
+function ogetBoolean(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getBoolean(value, name);
+}
+
 /*******************************
 	getArray
 *******************************/
@@ -683,6 +757,50 @@ function ogetTrimmedString(value, name) {
 	}
 
 	return getTrimmedString(
+		value,
+		name
+	);
+}
+
+function getEmptyOrTrimmedString(value, name) {
+
+	if (typeof value === "string") {
+
+		if (value.length === 0) {
+			return value;
+		}
+
+		if (trimmedregex.test(value)) {
+
+			return value;
+		}
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j) is not a trimmed.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j) is not a trimmed.",
+			value
+		)
+	);
+}
+
+function ogetEmptyOrTrimmedString(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getEmptyOrTrimmedString(
 		value,
 		name
 	);
@@ -1648,6 +1766,12 @@ module.exports = {
 	getInteger,
 	ogetInteger,
 
+	getPositiveInteger,
+	ogetPositiveInteger,
+
+	getBoolean,
+	ogetBoolean,
+
 	getArray,
 	getNonEmptyArray,
 
@@ -1655,8 +1779,13 @@ module.exports = {
 	ogetObject,
 
 	getTrimmed,
+
 	getTrimmedString,
 	ogetTrimmedString,
+
+	getEmptyOrTrimmedString,
+	ogetEmptyOrTrimmedString,
+
 	getEmail,
 
 	asId,
