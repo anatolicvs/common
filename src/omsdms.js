@@ -4,6 +4,10 @@ const http = require("http");
 const { randomBytes } = require("crypto");
 // const aws = require("aws-sdk");
 
+const {
+	createRepository
+} = require("./createRepository");
+
 const tools = require("./tools");
 const {
 	SimpleLogService, StdoutAppender, RedisAppender, Log
@@ -78,6 +82,108 @@ const ProductServiceClient = ServiceClientBase2.create({
 	getRestaurant: "/get-restaurant",
 	queryRestaurantsByBrand: "/query-restaurants-by-brand",
 });
+
+const RequestServiceRepository = createRepository({
+	prefix: "request.",
+	tables: {
+		"requests": {
+			hash: "id",
+			version: "iv",
+			indices: {
+				"accountId-createdAt-index": {
+					hash: "accountId",
+					range: "createdAt"
+				}
+			},
+			methods: {
+				createRequest: "create-versioned",
+				updateRequest: "update-versioned",
+				getRequest: "get",
+				queryRequestsByAccount: "query-index accountId-createdAt-index"
+			}
+		}
+	}
+});
+
+
+class RequestService {
+
+	async createRequest(serviceId, action, accountId, principalId, content) {
+
+		// {
+		// 	"action": "create-brand",
+		// 	"createdAt": 1527281173652,
+		// 	"id": "9c1523f278189825c296244acdccd1a8",
+		// 	"iv": 0,
+		// 	"principalId": "16e3a270ef42de221eb248cb9f7c74f4",
+		// 	"serviceId": "oms.product",
+		// 	"state": 0
+		//   }
+
+		const requestId = this.newid();
+
+		const request = {
+			id: requestId,
+			createdAt: tools.ts(),
+
+			serviceId,
+			action,
+
+			accountId,
+			principalId,
+
+			state: 0
+		};
+
+		if (content === undefined) {
+			// ok
+		}
+		else {
+			request.request = JSON.stringify(content);
+		}
+
+		await this.db.createRequest(
+			request
+		);
+
+		return requestId;
+	}
+
+	async completeRequest(requestId, code, content) {
+
+		const request = await this.db.getRequest(
+			requestId
+		);
+
+		if (request.state === 0) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		request.code = code;
+
+		if (content === undefined) {
+			// ok
+		}
+		else {
+			request.response = JSON.stringify(
+				content
+			);
+		}
+
+		request.state = 1;
+
+		await this.db.updateRequest(
+			request
+		);
+	}
+}
+
+RequestService.prototype.log = null;
+RequestService.prototype.db = null;
+RequestService.prototype.newid = null;
 
 class AuthorizationService {
 
@@ -480,10 +586,19 @@ function hostAPI({
 		response.end();
 	};
 
+	const requestServiceRepository = new RequestServiceRepository();
+	requestServiceRepository.da = da;
+
+	const requestService = new RequestService();
+	requestService.log = createLog("request");
+	requestService.db = requestServiceRepository;
+	requestService.newid = tools.rng16hex;
+
 	const requestGateway = new RequestGateway();
 	requestGateway.log = createLog("request-gateway");
 	requestGateway.api = httpapi;
 	requestGateway.authorizationService = authorizationService;
+	requestGateway.requestService = requestService;
 	requestGateway.instances = instances;
 
 	const requestGatewayOnRequest = requestGateway.onRequest.bind(

@@ -1,4 +1,5 @@
 "use strict";
+const { rng16hex } = require("./tools");
 const { parse: parseUrl } = require("url");
 const { validate } = require("./validate");
 const { hrtime } = process;
@@ -10,27 +11,30 @@ class RequestGateway {
 		// start timing
 		const time = hrtime();
 
-		function ok(data) {
+		function ok(data, requestId) {
 
 			respond(
 				"ok",
-				data
+				data,
+				requestId
 			);
 		};
 
-		function fault(fault, data) {
+		function fault(fault, data, requestId) {
 
 			respond(
 				fault,
-				data
+				data,
+				requestId
 			);
 		};
 
-		function respond(code, data) {
+		function respond(code, data, requestId) {
 
 			const payload = Buffer.from(JSON.stringify({
 				code,
-				data
+				data,
+				requestId
 			}));
 
 			response.statusCode = 200;
@@ -173,8 +177,11 @@ class RequestGateway {
 
 		// handler fields
 		let authorize;
+		let serviceId;
+		let action;
 		let cors;
 		let requestSchema;
+		let createRequest;
 
 		const table = api[
 			requestMethod
@@ -224,8 +231,11 @@ class RequestGateway {
 
 		// read handler fields
 		authorize = handler.authorize;
+		serviceId = handler.serviceId;
+		action = handler.action;
 		cors = handler.cors;
 		requestSchema = handler.request;
+		createRequest = handler.createRequest;
 
 		let authorizationInfo;
 		if (authorize) {
@@ -329,6 +339,7 @@ class RequestGateway {
 
 		// authorize
 
+		let accountId;
 		let principalId;
 		if (authorize) {
 
@@ -338,8 +349,8 @@ class RequestGateway {
 				authorizationResult = await authorizationService.authorize(
 					request,
 					authorizationInfo,
-					handler.serviceId,
-					handler.action,
+					serviceId,
+					action,
 					body || {}
 				);
 			}
@@ -364,7 +375,35 @@ class RequestGateway {
 				return;
 			}
 
+			accountId = authorizationResult.accountId;
 			principalId = authorizationResult.principalId;
+		}
+
+		// create requestId
+
+		let requestId;
+		if (createRequest === true) {
+
+			try {
+				requestId = await this.requestService.createRequest(
+					serviceId,
+					action,
+					accountId,
+					principalId,
+					body
+				);
+			}
+			catch (error) {
+
+				this.log.error(
+					error
+				);
+
+				fault("internal-error");
+				return;
+			}
+
+			request.requestId = requestId;
 		}
 
 		// invoke
@@ -375,7 +414,7 @@ class RequestGateway {
 			if (handler.handle2 !== undefined) {
 
 				data = await handler.handle2(
-					{ principalId },
+					{ accountId, principalId, requestId },
 					body
 				);
 			}
@@ -392,12 +431,9 @@ class RequestGateway {
 				const instance = instances[instanceName];
 
 				const methodName = handler.method;
-				//const async = handler.async;
-
-				const invocationHeaders = {};
 
 				data = await instance[methodName](
-					{ principalId },
+					{ accountId, principalId, requestId },
 					body
 				);
 			}
@@ -459,7 +495,7 @@ class RequestGateway {
 					}
 				}
 
-				fault(code);
+				fault(code, undefined, requestId);
 			}
 
 			return;
@@ -476,7 +512,7 @@ class RequestGateway {
 		else {
 
 			if (handler.response === undefined) {
-				ok(data);
+				ok(data, requestId);
 			}
 			else {
 
@@ -487,10 +523,10 @@ class RequestGateway {
 				);
 
 				if (errors === undefined) {
-					ok(data);
+					ok(data, requestId);
 				}
 				else {
-					fault("internal-error");
+					fault("internal-error", undefined, requestId);
 				}
 			}
 		}
@@ -500,6 +536,7 @@ class RequestGateway {
 RequestGateway.prototype.log = null;
 RequestGateway.prototype.api = null;
 RequestGateway.prototype.authorizationService = null;
+RequestGateway.prototype.requestService = null;
 RequestGateway.prototype.instances = null;
 
 module.exports = {
