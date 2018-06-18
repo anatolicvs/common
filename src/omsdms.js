@@ -595,7 +595,7 @@ function hostAPI({
 	requestService.newid = tools.rng16hex;
 
 	const requestGateway = new RequestGateway();
-	requestGateway.log = createLog("request-gateway");
+	requestGateway.log = createLog("gateway");
 	requestGateway.api = httpapi;
 	requestGateway.authorizationService = authorizationService;
 	requestGateway.requestService = requestService;
@@ -881,8 +881,16 @@ function hostService({
 		}
 	}
 
+	const requestServiceRepository = new RequestServiceRepository();
+	requestServiceRepository.da = da;
+
+	const requestService = new RequestService();
+	requestService.log = createLog("request");
+	requestService.db = requestServiceRepository;
+	requestService.newid = tools.rng16hex;
+
 	const requestGateway = new RequestGateway();
-	requestGateway.log = createLog("request-gateway");
+	requestGateway.log = createLog("gateway");
 	requestGateway.api = httpapi;
 	requestGateway.authorizationService = {
 
@@ -906,6 +914,8 @@ function hostService({
 			};
 		}
 	};
+
+	requestGateway.requestService = requestService;
 
 	requestGateway.instances = instances;
 
