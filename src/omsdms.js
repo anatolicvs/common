@@ -1289,6 +1289,8 @@ class Worker {
 
 			);
 
+			this.activeMessageCount++;
+
 			try {
 
 				await instance[methodName](
@@ -1326,9 +1328,13 @@ class Worker {
 					break;
 
 				case "retry":
+
+					this.activeMessageCount--;
 					return;
 
 				default:
+
+					this.activeMessageCount--;
 
 					this.log.error(
 						error
@@ -1341,6 +1347,8 @@ class Worker {
 		await this.deleteMessage(
 			message
 		);
+
+		this.activeMessageCount--;
 	}
 
 	async deleteMessage(message) {
@@ -1385,6 +1393,7 @@ Worker.prototype.sns = null;
 Worker.prototype.queueUrl = null;
 Worker.prototype.instances = null;
 Worker.prototype.receiveMessageRequest = null;
+Worker.prototype.activeMessageCount = 0;
 
 
 function hostWorker({
