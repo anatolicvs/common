@@ -1040,7 +1040,7 @@ class Worker {
 
 			const receiveMessageRequest = this.sqs.receiveMessage({
 				QueueUrl: this.queueUrl,
-				MaxNumberOfMessages: this.maxNumberOfMessages,
+				MaxNumberOfMessages: 1,
 				WaitTimeSeconds: 10
 			});
 
@@ -1101,30 +1101,24 @@ class Worker {
 				continue;
 			}
 
-			if (0 < messages.length) {
+			if (messages.length === 1) {
 				// ok
 			}
 			else {
 
 				this.log.warn(
-					"messages.length is not greater than 0."
+					"messages.length (%j) is not equal to 1.",
+					messages.length
 				);
 
 				continue;
 			}
 
-			this.log.trace(
-				"received %d message(s).",
-				messages.length
+			const message = messages[0];
+
+			this.processMessage(
+				message
 			);
-
-			for (const message of messages) {
-
-				this.processMessage(
-					message
-				);
-
-			}
 		}
 	}
 
@@ -1385,7 +1379,6 @@ Worker.prototype.log = null;
 Worker.prototype.sqs = null;
 Worker.prototype.sns = null;
 Worker.prototype.queueUrl = null;
-Worker.prototype.maxNumberOfMessages = 1;
 Worker.prototype.instances = null;
 Worker.prototype.receiveMessageRequest = null;
 
@@ -1514,14 +1507,6 @@ function hostWorker({
 	worker.sqs = sqs;
 	worker.sns = sns;
 	worker.queueUrl = config.queue;
-
-	if (config.maxNumberOfMessages === undefined) {
-		// ok
-	}
-	else {
-		worker.maxNumberOfMessages = config.maxNumberOfMessages;
-	}
-
 	worker.api = workerapi;
 	worker.instances = instances;
 
