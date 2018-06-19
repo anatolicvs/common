@@ -1329,7 +1329,11 @@ class Worker {
 					return;
 
 				default:
-					this.log.error(error);
+
+					this.log.error(
+						error
+					);
+
 					return;
 			}
 		}
