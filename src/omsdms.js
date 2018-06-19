@@ -1040,7 +1040,7 @@ class Worker {
 
 			const receiveMessageRequest = this.sqs.receiveMessage({
 				QueueUrl: this.queueUrl,
-				MaxNumberOfMessages: 1,
+				MaxNumberOfMessages: this.maxNumberOfMessages,
 				WaitTimeSeconds: 10
 			});
 
@@ -1118,11 +1118,13 @@ class Worker {
 				messages.length
 			);
 
-			const message = messages[0];
+			for (const message of messages) {
 
-			await this.processMessage(
-				message
-			);
+				this.processMessage(
+					message
+				);
+
+			}
 		}
 	}
 
@@ -1305,14 +1307,19 @@ class Worker {
 				if (handler.faults && handler.faults[error.message] === null) {
 
 					this.log.warn(
-						"message is reported as invalid."
+						"deleting message upon %j.",
+						error.message
 					);
 
 					throw new Error("invalid-message");
 				}
 				else {
 
-					this.log.warn(error);
+					this.log.warn(
+						"will retry message upon:",
+						error
+					);
+
 					throw new Error("retry");
 				}
 			}
@@ -1378,9 +1385,9 @@ Worker.prototype.log = null;
 Worker.prototype.sqs = null;
 Worker.prototype.sns = null;
 Worker.prototype.queueUrl = null;
-Worker.prototype.receiveMessageRequest = null;
-Worker.prototype.api = null;
+Worker.prototype.maxNumberOfMessages = 1;
 Worker.prototype.instances = null;
+Worker.prototype.receiveMessageRequest = null;
 
 
 function hostWorker({
@@ -1507,6 +1514,14 @@ function hostWorker({
 	worker.sqs = sqs;
 	worker.sns = sns;
 	worker.queueUrl = config.queue;
+
+	if (config.maxNumberOfMessages === undefined) {
+		// ok
+	}
+	else {
+		worker.maxNumberOfMessages = config.maxNumberOfMessages;
+	}
+
 	worker.api = workerapi;
 	worker.instances = instances;
 
