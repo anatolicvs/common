@@ -194,7 +194,7 @@ class AuthorizationService {
 			throw new Error("invalid-token");
 		}
 
-		const authorizationMatch = authorizationHeader.match(/^(jwt|key) ([A-Za-z0-9\-_.]+)$/);
+		const authorizationMatch = authorizationHeader.match(/^(token|jwt|key) ([A-Za-z0-9\-_.]+)$/);
 		if (authorizationMatch === null) {
 
 			console.log(1);
@@ -206,6 +206,7 @@ class AuthorizationService {
 
 		switch (type) {
 
+			case "token":
 			case "jwt":
 
 				const { verified } = this.jwtService.decode({
@@ -254,6 +255,7 @@ class AuthorizationService {
 
 		switch (type) {
 
+			case "token":
 			case "jwt": {
 
 				try {
