@@ -33,17 +33,23 @@ class HttpClient {
                 hostname: urlInfo.hostname,
                 port: urlInfo.port,
                 method,
-                path: urlInfo.path
+                path: urlInfo.path,
+                headers: {}
             };
+
+            if (this.authorization === null) {
+                // ok
+            }
+            else {
+                options.headers["Authorization"] = this.authorization;
+            }
 
             if (requestBuffer === undefined) {
                 // ok
             }
             else {
-                options.headers = {
-                    "Content-Type": "application/json; charset=utf-8",
-                    "Content-Length": `${requestBuffer.length}`
-                };
+                options.headers["Content-Type"] = "application/json; charset=utf-8";
+                options.headers["Content-Length"] = `${requestBuffer.length}`;
             }
 
             const request = lib.request(
@@ -158,6 +164,7 @@ HttpClient.prototype.log = null;
 HttpClient.prototype.baseUrl = null;
 HttpClient.prototype.logRequestContent = false;
 HttpClient.prototype.logResponseContent = false;
+HttpClient.prototype.authorization = null;
 
 module.exports = {
     HttpClient
