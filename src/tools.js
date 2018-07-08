@@ -419,6 +419,39 @@ function getNonEmptyString2(value, name) {
 	);
 }
 
+function getFinite(value, name) {
+
+	if (isFinite(value)) {
+		return value;
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j) is not a finite.",
+				name,
+				value
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j) is not a finite.",
+			value
+		)
+	);
+}
+
+function ogetFinite(value, name) {
+
+	if (value === undefined) {
+		return;
+	}
+
+	return getFinite(value, name);
+}
+
 function getInteger(value, name) {
 
 	if (isInteger(value)) {
@@ -1794,6 +1827,9 @@ module.exports = {
 
 	getPositiveInteger,
 	ogetPositiveInteger,
+
+	getFinite,
+	ogetFinite,
 
 	getBoolean,
 	ogetBoolean,
