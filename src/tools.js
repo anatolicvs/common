@@ -929,6 +929,31 @@ function isLatLng(lat, lng) {
 	return true;
 }
 
+function assertLatLng(lat, lng, name) {
+
+	if (isLatLng(lat, lng)) {
+		return;
+	}
+
+	if (name) {
+		throw new Error(
+			format(
+				"%s (%j,%j) is not a latlng.",
+				name,
+				lat,
+				lng
+			)
+		);
+	}
+
+	throw new Error(
+		format(
+			"(%j,%j) is not a latlng.",
+			lat,
+			lng
+		)
+	);
+}
 
 /*******************************
 	md5
@@ -1751,6 +1776,7 @@ module.exports = {
 	isCreditCardCVC,
 	isCreditCardExp,
 	isLatLng,
+	assertLatLng,
 
 	getId,
 	ogetId,
