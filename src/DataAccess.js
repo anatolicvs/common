@@ -3542,11 +3542,10 @@ class DataAccess {
 	}
 
 
-	async batchGet(tableName, hash, range, hashes) {
+	async batchGet(tableName, hashName, hashes) {
 
 		assertNonEmptyString(tableName);
-		assertNonEmptyString(hash);
-		assertOptionalNonEmptyString(range);
+		assertNonEmptyString(hashName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
 
@@ -3593,7 +3592,7 @@ class DataAccess {
 				for (const hashValue of chunk) {
 
 					keys.push({
-						[hash]: hashValue
+						[hashName]: hashValue
 					});
 
 				}
@@ -3603,6 +3602,7 @@ class DataAccess {
 					chunk.length
 				);
 
+				console.log(keys);
 				// batch get
 				const response = await this.ddb.batchGet({
 					RequestItems: {
@@ -3621,6 +3621,8 @@ class DataAccess {
 					prefixedTableName
 				];
 
+				console.log(items);
+
 				if (0 < items.length) {
 
 					this.log.debug(
@@ -3630,7 +3632,7 @@ class DataAccess {
 
 					for (const item of items) {
 
-						const hashValue = item[hash];
+						const hashValue = item[hashName];
 						const value = map.get(
 							hashValue
 						);
@@ -3685,7 +3687,7 @@ class DataAccess {
 					for (const key of keys) {
 
 						const hashValue = key[
-							hash
+							hashName
 						];
 
 						const value = map.get(
@@ -3715,7 +3717,7 @@ class DataAccess {
 						}
 
 						queue.push(
-							hash
+							hashName
 						);
 					}
 				}

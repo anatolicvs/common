@@ -252,6 +252,26 @@ describe("DataAccess", () => {
 		throw new Error();
 	});
 
+	it("batch-get", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await dba.batchGet("users", "id", ["user-1", "user-2"]),
+			[{ id: 'user-2', iv: 30 }, { id: 'user-1', iv: 0 }]
+			// [
+			// 	{
+			// 		id: "user-1",
+			// 		iv: 0
+			// 	},
+			// 	{
+			// 		id: "user-2",
+			// 		iv: 30
+			// 	}
+			// ]
+		);
+	});
+
 	it("get-cached", async () => {
 
 		await assertRedisEmpty();

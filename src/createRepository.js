@@ -494,6 +494,19 @@ function createRepository(request) {
 
 					break;
 
+				case "batch-get":
+
+					prototype[methodName] = function (hashes) {
+
+						return this.da.batchGet(
+							tableName,
+							hashName,
+							hashes
+						);
+					};
+
+					break;
+
 				case "batch-get-cached":
 
 					if (ttl === undefined) {
