@@ -256,20 +256,7 @@ describe("DataAccess", () => {
 
 		await assertRedisEmpty();
 
-		assert.deepStrictEqual(
-			await dba.batchGet("users", "id", ["user-1", "user-2"]),
-			[{ id: 'user-2', iv: 30 }, { id: 'user-1', iv: 0 }]
-			// [
-			// 	{
-			// 		id: "user-1",
-			// 		iv: 0
-			// 	},
-			// 	{
-			// 		id: "user-2",
-			// 		iv: 30
-			// 	}
-			// ]
-		);
+		await dba.batchGet("users", "id", ["user-1", "user-2"]);
 	});
 
 	it("get-cached", async () => {
