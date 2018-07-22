@@ -176,6 +176,7 @@ class RequestGateway {
 		} = request;
 
 		// handler fields
+		let authenticate;
 		let authorize;
 		let serviceId;
 		let action;
@@ -230,6 +231,7 @@ class RequestGateway {
 		}
 
 		// read handler fields
+		authenticate = handler.authenticate;
 		authorize = handler.authorize;
 		serviceId = handler.serviceId;
 		action = handler.action;
@@ -237,11 +239,11 @@ class RequestGateway {
 		requestSchema = handler.request;
 		createRequest = handler.createRequest;
 
-		let authorizationInfo;
-		if (authorize) {
+		let authenticationInfo;
+		if (authorize || authenticate) {
 
 			try {
-				authorizationInfo = await authorizationService.extract(
+				authenticationInfo = await authorizationService.extract(
 					request
 				);
 			}
@@ -348,7 +350,7 @@ class RequestGateway {
 			try {
 				authorizationResult = await authorizationService.authorize(
 					request,
-					authorizationInfo,
+					authenticationInfo,
 					serviceId,
 					action,
 					body || {}
@@ -512,7 +514,7 @@ class RequestGateway {
 		else {
 
 			if (handler.response === undefined) {
-				ok(data, requestId);
+				// ok
 			}
 			else {
 
@@ -523,10 +525,24 @@ class RequestGateway {
 				);
 
 				if (errors === undefined) {
-					ok(data, requestId);
+					// ok
 				}
 				else {
 					fault("internal-error", undefined, requestId);
+					return;
+				}
+			}
+
+			if (requestId === undefined) {
+				ok(data);
+			}
+			else {
+
+				if (data === undefined) {
+					ok({ requestId });
+				}
+				else {
+					ok(data);
 				}
 			}
 		}
