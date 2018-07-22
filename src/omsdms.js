@@ -1426,11 +1426,19 @@ function hostWorker({
 	da.tableNamePrefix = config.tableNamePrefix;
 	da.ddb = ddb;
 
+	const requestServiceRepository = new RequestServiceRepository();
+	requestServiceRepository.da = da;
+
+	const requestService = new RequestService();
+	requestService.log = createLog("request");
+	requestService.db = requestServiceRepository;
+	requestService.newid = tools.rng16hex;
 
 	const instances = createService({
 		createLog,
 		da,
-		sqs
+		sqs,
+		requestService
 	});
 
 	for (const instanceName in instances) {
