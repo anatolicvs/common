@@ -161,7 +161,7 @@ class RequestGateway {
 			log,
 			api,
 			authorizationService,
-			//requestService,
+			requestService,
 			instances
 		} = this;
 
@@ -239,11 +239,13 @@ class RequestGateway {
 		requestSchema = handler.request;
 		createRequest = handler.createRequest;
 
+		let accountId;
+		let principalId;
 		let authenticationInfo;
 		if (authorize || authenticate) {
 
 			try {
-				authenticationInfo = await authorizationService.extract(
+				authenticationInfo = await authorizationService.authenticate(
 					request
 				);
 			}
@@ -268,6 +270,9 @@ class RequestGateway {
 
 				return;
 			}
+
+			accountId = authenticationInfo.accountId;
+			principalId = authenticationInfo.principalId;
 		}
 
 		// read any content
@@ -341,8 +346,6 @@ class RequestGateway {
 
 		// authorize
 
-		let accountId;
-		let principalId;
 		if (authorize) {
 
 			let authorizationResult;
@@ -377,8 +380,8 @@ class RequestGateway {
 				return;
 			}
 
-			accountId = authorizationResult.accountId;
-			principalId = authorizationResult.principalId;
+			// accountId = authorizationResult.accountId;
+			// principalId = authorizationResult.principalId;
 		}
 
 		// create requestId
@@ -387,7 +390,7 @@ class RequestGateway {
 		if (createRequest === true) {
 
 			try {
-				requestId = await this.requestService.createRequest(
+				requestId = await requestService.createRequest(
 					serviceId,
 					action,
 					accountId,

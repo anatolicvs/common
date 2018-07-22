@@ -240,7 +240,7 @@ ServiceClientBase.prototype.raw = false;
 
 class ServiceClientBase2 {
 
-	post(endpoint, principalId, requestContent) {
+	post(endpoint, accountId, principalId, requestContent) {
 
 		return new Promise((resolve, reject) => {
 
@@ -309,6 +309,13 @@ class ServiceClientBase2 {
 			}
 
 			options.headers = {};
+
+			if (accountId === undefined) {
+				// ok
+			}
+			else {
+				options.headers["x-fiyuu-account"] = accountId;
+			}
 
 			if (principalId === undefined) {
 				// ok
@@ -445,11 +452,13 @@ class ServiceClientBase2 {
 			ServiceClient.prototype[key] = function (headers, request) {
 
 				const {
+					accountId,
 					principalId
 				} = headers;
 
 				return this.post(
 					methods[key],
+					accountId,
 					principalId,
 					request
 				);

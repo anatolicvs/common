@@ -1,7 +1,7 @@
 "use strict";
 const fs = require("fs");
 const http = require("http");
-const { randomBytes } = require("crypto");
+const { randomBytes, pbkdf2 } = require("crypto");
 // const aws = require("aws-sdk");
 
 const {
@@ -91,9 +91,25 @@ const {
 	RequestService
 } = require("./RequestService");
 
+function computeHash(password, salt, iterations, length, digest) {
+
+	return new Promise((resolve, reject) => {
+
+		pbkdf2(password, salt, iterations, length, digest, (error, hash) => {
+
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve(hash);
+		});
+	});
+}
+
 class AuthorizationService {
 
-	extract(request) {
+	async authenticate(request) {
 
 		const authorizationHeader = request.headers["authorization"];
 		if (authorizationHeader === undefined) {
@@ -103,7 +119,6 @@ class AuthorizationService {
 		const authorizationMatch = authorizationHeader.match(/^(token|jwt|key) ([A-Za-z0-9\-_.]+)$/);
 		if (authorizationMatch === null) {
 
-			console.log(1);
 			throw new Error("invalid-token");
 		}
 
@@ -113,9 +128,12 @@ class AuthorizationService {
 		switch (type) {
 
 			case "token":
-			case "jwt":
+			case "jwt": {
 
-				const { verified } = this.jwtService.decode({
+				const {
+					payload,
+					verified
+				} = this.jwtService.decode({
 					token,
 					publicKeys: this.publicKeys
 				});
@@ -128,20 +146,39 @@ class AuthorizationService {
 					throw new Error("invalid-token");
 				}
 
+				const {
+					aid: accountId,
+					uid: userId
+				} = payload;
+
 				return {
+					accountId,
+					principalId: userId,
 					type,
 					token
 				};
+			}
 
 			case "key": {
 
-				this.log.trace(
-					"extract key..."
+				const keyBuffer = b64u.toBuffer(
+					token
 				);
 
-				const keyBuffer = b64u.toBuffer(token);
+				const apiKeyIdBuffer = await computeHash(
+					keyBuffer,
+					"",
+					128,
+					16,
+					"sha256"
+				);
+
+				const apiKeyId = apiKeyIdBuffer.toString(
+					"hex"
+				);
 
 				return {
+					principalId: apiKeyId,
 					type,
 					token
 				};
@@ -229,6 +266,33 @@ AuthorizationService.prototype.log = null;
 AuthorizationService.prototype.jwtService = null;
 AuthorizationService.prototype.accessService = null;
 AuthorizationService.prototype.publicKeys = null;
+
+class HeaderAuthorizationService {
+
+	authenticate(request) {
+
+		const accountId = request.headers["x-fiyuu-account"];
+		const principalId = request.headers["x-fiyuu-principal"];
+
+		return {
+			accountId,
+			principalId
+		};
+	}
+
+	authorize(request, authenticationInfo, serviceId, action, resource) {
+
+		const {
+			accountId,
+			principalId
+		} = authenticationInfo;
+
+		return {
+			accountId,
+			principalId
+		};
+	}
+}
 
 function startHttpServer(log, server, port) {
 
@@ -798,34 +862,13 @@ function hostService({
 		}
 	}
 
+	const headerAuthorizationService = new HeaderAuthorizationService();
+
 	const requestGateway = new RequestGateway();
 	requestGateway.log = createLog("gateway");
 	requestGateway.api = httpapi;
-	requestGateway.authorizationService = {
-
-		extract(request) {
-
-			const principalId = request.headers["x-fiyuu-principal"];
-
-			return {
-				principalId
-			};
-		},
-
-		authorize(request, authorizationInfo, serviceId, action, resource) {
-
-			const {
-				principalId
-			} = authorizationInfo;
-
-			return {
-				principalId
-			};
-		}
-	};
-
+	requestGateway.authorizationService = headerAuthorizationService;
 	requestGateway.requestService = requestService;
-
 	requestGateway.instances = instances;
 
 	const requestGatewayOnRequest = requestGateway.onRequest.bind(
