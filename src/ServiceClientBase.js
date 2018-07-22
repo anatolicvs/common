@@ -156,9 +156,16 @@ class ServiceClientBase {
 									elapsed
 								);
 
-								resolve(
-									responseContent.data
-								);
+								if (this.raw === true) {
+									resolve(
+										responseContent
+									);
+								}
+								else {
+									resolve(
+										responseContent.data
+									);
+								}
 							}
 							else {
 
@@ -229,6 +236,7 @@ class ServiceClientBase {
 ServiceClientBase.prototype.log = null;
 ServiceClientBase.prototype.baseUrl = null;
 ServiceClientBase.prototype.authorization = null;
+ServiceClientBase.prototype.raw = false;
 
 class ServiceClientBase2 {
 
