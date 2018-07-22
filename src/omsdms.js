@@ -1171,6 +1171,7 @@ class Worker {
 			}
 
 			let principalId;
+			let requestId;
 
 			if (headers === undefined) {
 				// ok
@@ -1188,6 +1189,22 @@ class Worker {
 
 					this.log.warn(
 						"principalId is not a code."
+					);
+
+					throw new Error("invalid-message");
+				}
+
+				requestId = headers.requestId;
+				if (requestId === undefined) {
+					// ok
+				}
+				else if (tools.isCode(requestId)) {
+					// ok
+				}
+				else {
+
+					this.log.warn(
+						"requestId is not a code."
 					);
 
 					throw new Error("invalid-message");
@@ -1246,7 +1263,7 @@ class Worker {
 			try {
 
 				await instance[methodName](
-					{ principalId },
+					{ principalId, requestId },
 					content
 				);
 			}
