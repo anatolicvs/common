@@ -159,11 +159,20 @@ let redisClient;
 
 describe("DataAccess", () => {
 
-	const dba = new DataAccess();
-	dba.log = NoLog.instance;
-	dba.tableNamePrefix = "prefix.";
+	const da = new DataAccess();
+	da.log = NoLog.instance;
+	da.tableNamePrefix = "prefix.";
 
 	before(async () => {
+
+	});
+
+	after(async () => {
+
+	});
+
+
+	beforeEach(async () => {
 
 		await mockDynamoDB.start();
 
@@ -181,23 +190,20 @@ describe("DataAccess", () => {
 			redisClient.once("connect", resolve);
 		});
 
-		dba.ddb = mockDynamoDB.ddb;
-		dba.redis = redisClient;
+		da.ddb = mockDynamoDB.ddb;
+		da.redis = redisClient;
+
+		await redisClient.flushallAsync();
 	});
 
-	after(async () => {
+	afterEach(async () => {
 
-		dba.ddb = null;
-		dba.redis = null;
+		da.ddb = null;
+		da.redis = null;
 
 		await redisClient.quitAsync();
 		await redisServer.close();
 		await mockDynamoDB.stop();
-	});
-
-
-	beforeEach(async () => {
-		await redisClient.flushallAsync();
 	});
 
 	async function assertRedisEmpty() {
@@ -213,7 +219,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.get("users", "id", "user-1"),
+			await da.get("users", "id", "user-1"),
 			{
 				id: "user-1",
 				iv: 0
@@ -228,7 +234,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.get("users", "id", "user-0"),
+			await da.get("users", "id", "user-0"),
 			undefined
 		);
 
@@ -240,7 +246,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		try {
-			await dba.get("no-users", "id", "user-1");
+			await da.get("no-users", "id", "user-1");
 		}
 		catch (error) {
 
@@ -256,7 +262,7 @@ describe("DataAccess", () => {
 
 		await assertRedisEmpty();
 
-		await dba.batchGet("users", "id", ["user-1", "user-2"]);
+		await da.batchGet("users", "id", ["user-1", "user-2"]);
 	});
 
 	it("get-cached", async () => {
@@ -266,7 +272,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.getCached(ttl, "users", "id", "user-1"),
+			await da.getCached(ttl, "users", "id", "user-1"),
 			{
 				id: "user-1",
 				iv: 0
@@ -289,7 +295,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.getCached(600, "users", "id", "user-0"),
+			await da.getCached(600, "users", "id", "user-0"),
 			undefined
 		);
 
@@ -303,7 +309,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.getCachedVersioned(ttl, "users", "id", "user-1", "iv"),
+			await da.getCachedVersioned(ttl, "users", "id", "user-1", "iv"),
 			{ id: "user-1", iv: 0 }
 		);
 
@@ -326,7 +332,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.getCachedVersioned(10, "users", "id", "user-0", "iv"),
+			await da.getCachedVersioned(10, "users", "id", "user-0", "iv"),
 			undefined
 		);
 
@@ -343,7 +349,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.queryTableRangedCached(ttl, "user-logins", "id", "ts", "user-1"),
+			await da.queryTableRangedCached(ttl, "user-logins", "id", "ts", "user-1"),
 			[
 				{ id: 'user-1', ts: 0 },
 				{ id: 'user-1', ts: 1 },
@@ -404,7 +410,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.scan("group-user-pairs"),
+			await da.scan("group-user-pairs"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -419,7 +425,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.enumerateTable("group-user-pairs", 1),
+			await da.enumerateTable("group-user-pairs", 1),
 			{
 				items: [
 					{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
@@ -431,7 +437,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.enumerateTable("group-user-pairs", 1, { id: "group-1|user-1" }),
+			await da.enumerateTable("group-user-pairs", 1, { id: "group-1|user-1" }),
 			{
 				items: [
 					{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -443,7 +449,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.enumerateTable("group-user-pairs", 1, { id: "group-2|user-1" }),
+			await da.enumerateTable("group-user-pairs", 1, { id: "group-2|user-1" }),
 			{
 				items: []
 			}
@@ -457,7 +463,7 @@ describe("DataAccess", () => {
 		it("limit<n,asc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, false),
 				{
 					items: [
 						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
@@ -468,7 +474,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-1", createdAt: 1, userId: "user-1" }, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-1", createdAt: 1, userId: "user-1" }, false),
 				{
 					items: [
 						{ id: 'item-2', createdAt: 2, userId: 'user-1' },
@@ -479,7 +485,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
 				{
 					items: []
 				}
@@ -489,7 +495,7 @@ describe("DataAccess", () => {
 		it("limit<n,desc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, undefined, true),
 				{
 					items: [
 						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
@@ -500,7 +506,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-2", createdAt: 2, userId: "user-1" }, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-2", createdAt: 2, userId: "user-1" }, true),
 				{
 					items: [
 						{ id: 'item-1', createdAt: 1, userId: 'user-1' },
@@ -511,7 +517,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 2, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
 				{
 					items: []
 				}
@@ -521,7 +527,7 @@ describe("DataAccess", () => {
 		it("limit=n,asc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, false),
 				{
 					items: [
 						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
@@ -534,7 +540,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-3", createdAt: 3, userId: "user-1" }, false),
 				{
 					items: []
 				}
@@ -544,7 +550,7 @@ describe("DataAccess", () => {
 		it("limit=n,desc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, undefined, true),
 				{
 					items: [
 						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
@@ -557,7 +563,7 @@ describe("DataAccess", () => {
 			);
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 4, { id: "item-0", createdAt: 0, userId: "user-1" }, true),
 				{
 					items: []
 				}
@@ -567,7 +573,7 @@ describe("DataAccess", () => {
 		it("limit>n,asc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, false),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, false),
 				{
 					items: [
 						{ id: 'item-0', createdAt: 0, userId: 'user-1' },
@@ -582,7 +588,7 @@ describe("DataAccess", () => {
 		it("limit>n,desc", async () => {
 
 			assert.deepStrictEqual(
-				await dba.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, true),
+				await da.enumerateIndexRanged("user-items", "userId-createdAt-index", "userId", "user-1", "createdAt", 0, 3, 5, undefined, true),
 				{
 					items: [
 						{ id: 'item-3', createdAt: 3, userId: 'user-1' },
@@ -602,7 +608,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.scanCached(ttl, "group-user-pairs", "id"),
+			await da.scanCached(ttl, "group-user-pairs", "id"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -645,7 +651,7 @@ describe("DataAccess", () => {
 		);
 
 		assert.deepStrictEqual(
-			await dba.scanCached(ttl, "group-user-pairs", "id"),
+			await da.scanCached(ttl, "group-user-pairs", "id"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -660,7 +666,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.scanRangedCached(ttl, "user-logins", "id", "ts"),
+			await da.scanRangedCached(ttl, "user-logins", "id", "ts"),
 			[
 				{ id: "user-2", ts: 0 },
 				{ id: "user-2", ts: 1 },
@@ -749,7 +755,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.scanCachedVersioned(ttl, "group-user-pairs", "id", undefined, "iv"),
+			await da.scanCachedVersioned(ttl, "group-user-pairs", "id", undefined, "iv"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -805,7 +811,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -848,12 +854,100 @@ describe("DataAccess", () => {
 		);
 
 		assert.deepStrictEqual(
-			await dba.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
 			]
 		);
+	});
+
+	it("query-index-cached should check item[indexHashName]", async () => {
+
+		await assertRedisEmpty();
+
+		const ttl = 10 + Math.floor(Math.random() * 10);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!userId-createdAt-index!user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-1|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-2|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.zrangeAsync("prefix.group-user-pairs!userId-createdAt-index!user-1", 0, -1, "WITHSCORES"),
+			[
+				"group-1|user-1",
+				"0",
+				"group-2|user-1",
+				"1"
+			]
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.group-user-pairs!group-1|user-1")),
+			{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 }
+		);
+
+		assert.deepStrictEqual(
+			JSON.parse(await redisClient.getAsync("prefix.group-user-pairs!group-2|user-1")),
+			{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 }
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.getCached(ttl, "group-user-pairs", "id", "group-1|user-1"),
+			{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 },
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-1|user-1"),
+			ttl
+		);
+
+		await da.updateCached(ttl, "group-user-pairs", "id", undefined, {
+			id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-2", iv: 0
+		});
+
+		assert.deepStrictEqual(
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-2"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-2", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCached(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1"),
+			[
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+
 	});
 
 	it("query-index-cached-versioned", async () => {
@@ -863,7 +957,7 @@ describe("DataAccess", () => {
 		const ttl = 10 + Math.floor(Math.random() * 10);
 
 		assert.deepStrictEqual(
-			await dba.queryIndexCachedVersioned(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			await da.queryIndexCachedVersioned(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
@@ -912,12 +1006,96 @@ describe("DataAccess", () => {
 		);
 	});
 
+	it("query-index-cached-versioned should check item[indexHashName]", async () => {
+
+		await assertRedisEmpty();
+
+		const ttl = 10 + Math.floor(Math.random() * 10);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!userId-createdAt-index!user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-1|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-2|user-1"),
+			ttl
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.zrangeAsync("prefix.group-user-pairs!userId-createdAt-index!user-1", 0, -1, "WITHSCORES"),
+			[
+				"group-1|user-1",
+				"0",
+				"group-2|user-1",
+				"1"
+			]
+		);
+
+		assert.deepStrictEqual(
+			(await redisClient.zrangeAsync("prefix.group-user-pairs!group-1|user-1", 0, -1, "WITHSCORES")).map(JSON.parse),
+			[
+				{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 },
+				0
+			]
+		);
+
+		assert.deepStrictEqual(
+			(await redisClient.zrangeAsync("prefix.group-user-pairs!group-2|user-1", 0, -1, "WITHSCORES")).map(JSON.parse),
+			[
+				{ id: "group-2|user-1", createdAt: 0, groupId: "group-2", userId: "user-1", iv: 0 },
+				0
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.getCachedVersioned(ttl, "group-user-pairs", "id", "group-1|user-1", "iv"),
+			{ id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-1", iv: 0 },
+		);
+
+		assert.deepStrictEqual(
+			await redisClient.ttlAsync("prefix.group-user-pairs!group-1|user-1"),
+			ttl
+		);
+
+		await da.updateCachedVersioned(ttl, "group-user-pairs", "id", undefined, "iv", {
+			id: "group-1|user-1", createdAt: 0, groupId: "group-1", userId: "user-2", iv: 0
+		});
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-2", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-2", iv: 1 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(ttl, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+	});
+
 	it("query-index-first", async () => {
 
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", false),
+			await da.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", false),
 			[
 				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 }
 			]
@@ -931,7 +1109,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", true),
+			await da.queryIndexFirst("group-user-pairs", "userId-createdAt-index", "userId", "user-1", true),
 			[
 				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
 			]
@@ -940,12 +1118,103 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 	});
 
+	it("create-cached-versioned", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await da.scanCachedVersioned(10, "group-user-pairs", "id", undefined, "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(10, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		await da.createCachedVersioned(10, "group-user-pairs", "id", undefined, "iv", {
+			id: "group-10|user-1",
+			createdAt: 0,
+			groupId: "group-10",
+			userId: "user-1"
+		}, {
+				"userId-createdAt-index": { hash: "userId", range: "createdAt" }
+			});
+
+		assert.deepStrictEqual(
+			await da.scanCachedVersioned(10, "group-user-pairs", "id", undefined, "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-10|user-1', createdAt: 0, groupId: 'group-10', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 },
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(10, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-10|user-1', createdAt: 0, groupId: 'group-10', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+	});
+
+	it("remove-cached-versioned", async () => {
+
+		await assertRedisEmpty();
+
+		assert.deepStrictEqual(
+			await da.scanCachedVersioned(10, "group-user-pairs", "id", undefined, "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(10, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 },
+				{ id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0 }
+			]
+		);
+
+		await da.removeCachedVersioned("group-user-pairs", "id", undefined, "iv", {
+			id: 'group-2|user-1', createdAt: 0, groupId: 'group-2', userId: "user-1", iv: 0
+		});
+
+		// {
+		// 	"userId-createdAt-index": { hash: "userId", range: "createdAt" }
+		// }
+
+		assert.deepStrictEqual(
+			await da.scanCachedVersioned(10, "group-user-pairs", "id", undefined, "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 }
+			]
+		);
+
+		assert.deepStrictEqual(
+			await da.queryIndexCachedVersioned(10, "group-user-pairs", "id", undefined, "userId-createdAt-index", "userId", "user-1", "iv"),
+			[
+				{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: "user-1", iv: 0 }
+			]
+		);
+	});
+
 	it("create-or-get create", async () => {
 
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.createOrGet("group-user-pairs", "id", { id: "group-3|user-1" }),
+			await da.createOrGet("group-user-pairs", "id", { id: "group-3|user-1" }),
 			undefined
 		);
 
@@ -957,7 +1226,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.createOrGet("group-user-pairs", "id", { id: "group-1|user-1" }),
+			await da.createOrGet("group-user-pairs", "id", { id: "group-1|user-1" }),
 			{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
 		);
 
@@ -969,7 +1238,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.getOrCreate("group-user-pairs", "id", { id: "group-1|user-1" }),
+			await da.getOrCreate("group-user-pairs", "id", { id: "group-1|user-1" }),
 			{ id: 'group-1|user-1', createdAt: 0, groupId: 'group-1', userId: 'user-1', iv: 0 }
 		);
 
@@ -981,7 +1250,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.getOrCreate("group-user-pairs", "id", { id: "group-4|user-1" }),
+			await da.getOrCreate("group-user-pairs", "id", { id: "group-4|user-1" }),
 			undefined
 		);
 
@@ -993,7 +1262,7 @@ describe("DataAccess", () => {
 		await assertRedisEmpty();
 
 		assert.deepStrictEqual(
-			await dba.create("users", "id", { id: "user-30" }),
+			await da.create("users", "id", { id: "user-30" }),
 			undefined
 		);
 

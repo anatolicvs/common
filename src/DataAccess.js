@@ -1,4 +1,7 @@
 "use strict";
+const {
+	hrtime
+} = process;
 
 function assertNonEmptyString(value) {
 
@@ -45,50 +48,89 @@ function assertPositiveInteger(value) {
 	}
 }
 
-const {
-	hrtime
-} = process;
+function formatItemId(hash) {
+
+	return hash;
+}
+
+function formatItemIdRanged(hash, range) {
+
+	return `${hash}!${range}`;
+}
+
+function formatItemKey(prefixedTableName, hash) {
+
+	return `${prefixedTableName}!${hash}`;
+}
+
+function formatItemKeyRanged(prefixedTableName, hash, range) {
+
+	return `${prefixedTableName}!${hash}!${range}`;
+}
+
+function formatItemKeyFromId(prefixedTableName, id) {
+
+	return `${prefixedTableName}!${id}`;
+}
+
 
 class DataAccess {
 
 	async getCachedItems(prefixedTableName, setKey) {
 
-		if (this.redis.connected) {
+		const {
+			redis
+		} = this;
 
-			try {
+		if (redis.connected) {
+			// ok
+		}
+		else {
+			return;
+		}
 
-				const ids = await this.redis.zrangeAsync(
-					setKey,
-					0,
-					-1
-				);
+		try {
 
-				if (0 < ids.length) {
+			const ids = await redis.zrangeAsync(
+				setKey,
+				0,
+				-1
+			);
 
-					const multi = this.redis.multi();
-
-					for (const id of ids) {
-
-						const key = `${prefixedTableName}!${id}`;
-
-						multi.get(
-							key
-						);
-					}
-
-					const jsons = await multi.execAsync();
-
-					if (jsons.indexOf(null) < 0) {
-						return jsons.map(JSON.parse);
-					}
-				}
+			if (0 < ids.length) {
+				// ok
 			}
-			catch (error) {
+			else {
+				return;
+			}
 
-				this.log.warn(
-					error
+			const multi = redis.multi();
+
+			for (const id of ids) {
+
+				const key = formatItemKeyFromId(prefixedTableName, id);
+
+				multi.get(
+					key
 				);
 			}
+
+			const jsons = await multi.execAsync();
+
+			if (jsons.indexOf(null) < 0) {
+				// ok
+			}
+			else {
+				return;
+			}
+
+			return jsons.map(JSON.parse);
+		}
+		catch (error) {
+
+			this.log.warn(
+				error
+			);
 		}
 	}
 
@@ -208,7 +250,7 @@ class DataAccess {
 		}
 	}
 
-	async createCachedVersioned(ttl, tableName, hashName, rangeName, versionName, item) {
+	async createCachedVersioned(ttl, tableName, hashName, rangeName, versionName, item, indexDefinitions) {
 
 		assertNonEmptyString(tableName);
 		assertNonEmptyString(hashName);
@@ -242,10 +284,10 @@ class DataAccess {
 
 					let key;
 					if (rangeName === undefined) {
-						key = `${prefixedTableName}!${item[hashName]}`;
+						key = formatItemKey(prefixedTableName, item[hashName]);
 					}
 					else {
-						key = `${prefixedTableName}!${item[hashName]}!${item[rangeName]}`;
+						key = formatItemKeyRanged(prefixedTableName, item[hashName], item[rangeName]);
 					}
 
 					const json = JSON.stringify(
@@ -269,7 +311,40 @@ class DataAccess {
 						ttl
 					);
 
+
 					// clear indices
+
+					multi.del(
+						prefixedTableName
+					);
+
+					if (indexDefinitions === undefined) {
+						// ok
+					}
+					else {
+
+						for (const indexName in indexDefinitions) {
+
+							const indexDefinition = indexDefinitions[indexName];
+
+							const {
+								hash: indexHashName
+							} = indexDefinition;
+
+							const indexHash = item[
+								indexHashName
+							];
+
+							if (indexHash === undefined) {
+								// ok
+							}
+							else {
+								multi.del(
+									`${prefixedTableName}!${indexName}!${indexHash}`
+								);
+							}
+						}
+					}
 
 					// no need to wait
 					multi.exec((error, reply) => {
@@ -517,7 +592,10 @@ class DataAccess {
 			existingItem = getResponse.Item;
 			consumed = getResponse.ConsumedCapacity.CapacityUnits;
 
-			if (existingItem !== undefined) {
+			if (existingItem === undefined) {
+				// ok
+			}
+			else {
 				return existingItem;
 			}
 
@@ -592,7 +670,10 @@ class DataAccess {
 			existingItem = getResponse.Item;
 			consumed = getResponse.ConsumedCapacity.CapacityUnits;
 
-			if (existingItem !== undefined) {
+			if (existingItem === undefined) {
+				// ok
+			}
+			else {
 				return existingItem;
 			}
 
@@ -701,11 +782,176 @@ class DataAccess {
 		}
 	}
 
+	async updateCached(ttl, tableName, hashName, rangeName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: item,
+				ConditionExpression: "attribute_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+
+			if (this.redis.connected) {
+
+				try {
+
+					let key;
+					if (rangeName === undefined) {
+						key = formatItemKey(prefixedTableName, item[hashName]);
+					}
+					else {
+						key = formatItemKeyRanged(prefixedTableName, item[hashName], item[rangeName]);
+					}
+
+					const json = JSON.stringify(
+						item
+					);
+
+					await this.redis.setAsync(
+						key,
+						json,
+						"EX",
+						ttl
+					);
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					)
+				}
+			}
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"update-cached %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"update-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async updateVersioned(tableName, versionName, item) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(versionName);
+
+		const version = item[versionName];
+
+		if (Number.isFinite(version)) {
+			// ok
+		}
+		else {
+			throw new Error();
+		}
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+		const nextVersion = Math.floor(version) + 1;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.put({
+				TableName: prefixedTableName,
+				Item: { ...item, [versionName]: nextVersion },
+				ConditionExpression: "#version = :version",
+				ExpressionAttributeNames: {
+					"#version": versionName
+				},
+				ExpressionAttributeValues: {
+					":version": version
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			item[versionName] = nextVersion;
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"update-versioned %s(%d->%d) %d %s",
+					prefixedTableName,
+					version,
+					nextVersion,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"update-versioned %s(%d->%d) %s %s",
+					prefixedTableName,
+					version,
+					nextVersion,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async updateCachedVersioned(ttl, tableName, hashName, rangeName, versionName, item) {
 
 		assertNonEmptyString(tableName);
 		assertNonEmptyString(hashName);
-		assertOptionalNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
 		assertNonEmptyString(versionName);
 
 		const version = item[versionName];
@@ -750,10 +996,10 @@ class DataAccess {
 
 					let key;
 					if (rangeName === undefined) {
-						key = `${prefixedTableName}!${item[hashName]}`;
+						key = formatItemKey(prefixedTableName, item[hashName]);
 					}
 					else {
-						key = `${prefixedTableName}!${item[hashName]}!${item[rangeName]}`;
+						key = formatItemKeyRanged(prefixedTableName, item[hashName], item[rangeName]);
 					}
 
 					const json = JSON.stringify(
@@ -773,15 +1019,7 @@ class DataAccess {
 						ttl
 					);
 
-					// no need to wait
-					multi.exec((error, reply) => {
-
-						if (error) {
-							this.log.warn(
-								error
-							);
-						}
-					});
+					await multi.execAsync();
 				}
 				catch (error) {
 
@@ -822,6 +1060,60 @@ class DataAccess {
 		}
 	}
 
+	async delete(tableName, hashName, rangeName, hash, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"delete %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"delete %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
 	async deleteCached(tableName, hashName, hash, rangeName, range) {
 
 		assertNonEmptyString(tableName);
@@ -832,10 +1124,10 @@ class DataAccess {
 
 		let key;
 		if (rangeName === undefined) {
-			key = `${prefixedTableName}!${hash}`;
+			key = formatItemKey(prefixedTableName, hash);
 		}
 		else {
-			key = `${prefixedTableName}!${hash}!${range}`;
+			key = formatItemKeyRanged(prefixedTableName, hash, range);
 		}
 
 		let consumed = 0;
@@ -892,6 +1184,64 @@ class DataAccess {
 
 				this.log.warn(
 					"delete-cached %s %s %s",
+					prefixedTableName,
+					caught.code,
+					elapsed
+				);
+			}
+		}
+	}
+
+	async remove(tableName, hashName, hash, rangeName, range) {
+
+		assertNonEmptyString(tableName);
+		assertNonEmptyString(hashName);
+		assertOptionalNonEmptyString(rangeName);
+
+		const prefixedTableName = this.tableNamePrefix + tableName;
+
+		let consumed = 0;
+		let caught;
+
+		const time = hrtime();
+
+		try {
+
+			const response = await this.ddb.delete({
+				TableName: prefixedTableName,
+				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
+				ConditionExpression: "attribute_exists(#hash)",
+				ExpressionAttributeNames: {
+					"#hash": hashName
+				},
+				ReturnConsumedCapacity: "TOTAL"
+			}).promise();
+
+			consumed = response.ConsumedCapacity.CapacityUnits;
+		}
+		catch (error) {
+
+			caught = error;
+			throw error;
+		}
+		finally {
+
+			const [s, ns] = hrtime(time);
+			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
+
+			if (caught === undefined) {
+
+				this.log.trace(
+					"remove %s %d %s",
+					prefixedTableName,
+					consumed,
+					elapsed
+				);
+			}
+			else {
+
+				this.log.warn(
+					"remove %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -1080,10 +1430,10 @@ class DataAccess {
 
 		let key;
 		if (rangeName === undefined) {
-			key = `${prefixedTableName}!${hash}`;
+			key = formatItemKey(prefixedTableName, hash);
 		}
 		else {
-			key = `${prefixedTableName}!${hash}!${range}`;
+			key = formatItemKeyRanged(prefixedTableName, hash, range);
 		}
 
 		let consumed = 0;
@@ -1155,82 +1505,6 @@ class DataAccess {
 		}
 	}
 
-	async updateVersioned(tableName, versionName, item) {
-
-		assertNonEmptyString(tableName);
-		assertNonEmptyString(versionName);
-
-		const version = item[versionName];
-
-		if (Number.isFinite(version)) {
-			// ok
-		}
-		else {
-			throw new Error();
-		}
-
-		const prefixedTableName = this.tableNamePrefix + tableName;
-		const nextVersion = Math.floor(version) + 1;
-
-		let consumed = 0;
-		let caught;
-
-		const time = hrtime();
-
-		try {
-
-			const response = await this.ddb.put({
-				TableName: prefixedTableName,
-				Item: { ...item, [versionName]: nextVersion },
-				ConditionExpression: "#version = :version",
-				ExpressionAttributeNames: {
-					"#version": versionName
-				},
-				ExpressionAttributeValues: {
-					":version": version
-				},
-				ReturnConsumedCapacity: "TOTAL"
-			}).promise();
-
-			item[versionName] = nextVersion;
-
-			consumed = response.ConsumedCapacity.CapacityUnits;
-		}
-		catch (error) {
-
-			caught = error;
-			throw error;
-		}
-		finally {
-
-			const [s, ns] = hrtime(time);
-			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
-
-			if (caught === undefined) {
-
-				this.log.trace(
-					"update-versioned %s(%d->%d) %d %s",
-					prefixedTableName,
-					version,
-					nextVersion,
-					consumed,
-					elapsed
-				);
-			}
-			else {
-
-				this.log.warn(
-					"update-versioned %s(%d->%d) %s %s",
-					prefixedTableName,
-					version,
-					nextVersion,
-					caught.code,
-					elapsed
-				);
-			}
-		}
-	}
-
 	async put(tableName, item) {
 
 		assertNonEmptyString(tableName);
@@ -1275,118 +1549,6 @@ class DataAccess {
 
 				this.log.warn(
 					"put %s %s %s",
-					prefixedTableName,
-					caught.code,
-					elapsed
-				);
-			}
-		}
-	}
-
-	async delete(tableName, hashName, rangeName, hash, range) {
-
-		assertNonEmptyString(tableName);
-		assertNonEmptyString(hashName);
-		assertOptionalNonEmptyString(rangeName);
-
-		const prefixedTableName = this.tableNamePrefix + tableName;
-
-		let consumed = 0;
-		let caught;
-
-		const time = hrtime();
-
-		try {
-
-			const response = await this.ddb.delete({
-				TableName: prefixedTableName,
-				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
-				ReturnConsumedCapacity: "TOTAL"
-			}).promise();
-
-			consumed = response.ConsumedCapacity.CapacityUnits;
-		}
-		catch (error) {
-
-			caught = error;
-			throw error;
-		}
-		finally {
-
-			const [s, ns] = hrtime(time);
-			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
-
-			if (caught === undefined) {
-
-				this.log.trace(
-					"delete %s %d %s",
-					prefixedTableName,
-					consumed,
-					elapsed
-				);
-			}
-			else {
-
-				this.log.warn(
-					"delete %s %s %s",
-					prefixedTableName,
-					caught.code,
-					elapsed
-				);
-			}
-		}
-	}
-
-	async remove(tableName, hashName, hash, rangeName, range) {
-
-		assertNonEmptyString(tableName);
-		assertNonEmptyString(hashName);
-		assertOptionalNonEmptyString(rangeName);
-
-		const prefixedTableName = this.tableNamePrefix + tableName;
-
-		let consumed = 0;
-		let caught;
-
-		const time = hrtime();
-
-		try {
-
-			const response = await this.ddb.delete({
-				TableName: prefixedTableName,
-				Key: rangeName === undefined ? { [hashName]: hash } : { [hashName]: hash, [rangeName]: range },
-				ConditionExpression: "attribute_exists(#hash)",
-				ExpressionAttributeNames: {
-					"#hash": hashName
-				},
-				ReturnConsumedCapacity: "TOTAL"
-			}).promise();
-
-			consumed = response.ConsumedCapacity.CapacityUnits;
-		}
-		catch (error) {
-
-			caught = error;
-			throw error;
-		}
-		finally {
-
-			const [s, ns] = hrtime(time);
-			const elapsed = ((s * 1e9 + ns) / 1e6).toFixed(2);
-
-			if (caught === undefined) {
-
-				this.log.trace(
-					"remove %s %d %s",
-					prefixedTableName,
-					consumed,
-					elapsed
-				);
-			}
-			else {
-
-				this.log.warn(
-					"remove %s %s %s",
 					prefixedTableName,
 					caught.code,
 					elapsed
@@ -1466,10 +1628,10 @@ class DataAccess {
 
 		let key;
 		if (rangeName === undefined) {
-			key = `${prefixedTableName}!${hash}`;
+			key = formatItemKey(prefixedTableName, hash);
 		}
 		else {
-			key = `${prefixedTableName}!${hash}!${range}`;
+			key = formatItemKeyRanged(prefixedTableName, hash, range);
 		}
 
 		let item;
@@ -1592,10 +1754,10 @@ class DataAccess {
 
 		let key;
 		if (rangeName === undefined) {
-			key = `${prefixedTableName}!${hash}`;
+			key = formatItemKey(prefixedTableName, hash);
 		}
 		else {
-			key = `${prefixedTableName}!${hash}!${range}`;
+			key = formatItemKeyRanged(prefixedTableName, hash, range);
 		}
 
 		let item;
@@ -1610,28 +1772,42 @@ class DataAccess {
 
 				try {
 
-					const result = await this.redis.zrangeAsync(
+					const pair = await this.redis.zrangeAsync(
 						key,
 						-1,
 						-1,
 						"WITHSCORES"
 					);
 
-					if (result.length === 2) {
+					if (Array.isArray(pair)) {
 
-						const json = result[0];
-						const scoreString = result[1];
+						if (pair.length === 2) {
 
-						item = JSON.parse(
-							json
-						);
+							const [
+								json,
+								scoreString
+							] = pair;
 
-						const score = Number.parseFloat(
-							scoreString
-						);
+							if (typeof json === "string") {
 
-						if (item[versionName] === score) {
-							return item;
+								if (typeof scoreString === "string") {
+
+									item = JSON.parse(
+										json
+									);
+
+									const score = Number.parseFloat(
+										scoreString
+									);
+
+									if (Number.isFinite(score)) {
+
+										if (item[versionName] === score) {
+											return item;
+										}
+									}
+								}
+							}
 						}
 					}
 				}
@@ -1856,6 +2032,7 @@ class DataAccess {
 		assertNonEmptyString(hashName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
+		const setKey = prefixedTableName;
 
 		let length = 0;
 		let consumed = 0;
@@ -1867,7 +2044,7 @@ class DataAccess {
 
 			let items = await this.getCachedItems(
 				prefixedTableName,
-				prefixedTableName
+				setKey
 			);
 
 			if (items === undefined) {
@@ -1900,8 +2077,18 @@ class DataAccess {
 
 							const item = items[i];
 
-							const id = item[hashName];
-							const key = `${prefixedTableName}!${id}`;
+							const hash = item[
+								hashName
+							];
+
+							const id = formatItemId(
+								hash
+							);
+
+							const key = formatItemKeyFromId(
+								prefixedTableName,
+								id
+							);
 
 							const json = JSON.stringify(
 								item
@@ -1921,16 +2108,16 @@ class DataAccess {
 						}
 
 						multi.del(
-							prefixedTableName
+							setKey
 						);
 
 						multi.zadd(
-							prefixedTableName,
+							setKey,
 							ids
 						);
 
 						multi.expire(
-							prefixedTableName,
+							setKey,
 							ttl
 						);
 
@@ -1996,6 +2183,7 @@ class DataAccess {
 		assertNonEmptyString(rangeName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
+		const setKey = prefixedTableName;
 
 		let length = 0;
 		let consumed = 0;
@@ -2007,7 +2195,7 @@ class DataAccess {
 
 			let items = await this.getCachedItems(
 				prefixedTableName,
-				prefixedTableName
+				setKey
 			);
 
 			if (items === undefined) {
@@ -2040,8 +2228,15 @@ class DataAccess {
 
 							const item = items[i];
 
-							const id = `${item[hashName]}!${item[rangeName]}`;
-							const key = `${prefixedTableName}!${id}`;
+							const id = formatItemIdRanged(
+								item[hashName],
+								item[rangeName]
+							);
+
+							const key = formatItemKeyFromId(
+								prefixedTableName,
+								id
+							);
 
 							const json = JSON.stringify(
 								item
@@ -2061,16 +2256,16 @@ class DataAccess {
 						}
 
 						multi.del(
-							prefixedTableName
+							setKey
 						);
 
 						multi.zadd(
-							prefixedTableName,
+							setKey,
 							ids
 						);
 
 						multi.expire(
-							prefixedTableName,
+							setKey,
 							ttl
 						);
 
@@ -2108,7 +2303,7 @@ class DataAccess {
 			if (caught === undefined) {
 
 				this.log.trace(
-					"scan-cached %s(%s,%s) %d %d %s",
+					"scan-ranged-cached %s(%s,%s) %d %d %s",
 					prefixedTableName,
 					hashName,
 					rangeName,
@@ -2120,7 +2315,7 @@ class DataAccess {
 			else {
 
 				this.log.warn(
-					"scan-cached %s(%s,%s) %s %s",
+					"scan-ranged-cached %s(%s,%s) %s %s",
 					prefixedTableName,
 					hashName,
 					rangeName,
@@ -2139,6 +2334,7 @@ class DataAccess {
 		assertNonEmptyString(versionName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
+		const setKey = prefixedTableName;
 
 		let length = 0;
 		let consumed = 0;
@@ -2153,7 +2349,7 @@ class DataAccess {
 				try {
 
 					const ids = await this.redis.zrangeAsync(
-						prefixedTableName,
+						setKey,
 						0,
 						-1
 					);
@@ -2166,8 +2362,14 @@ class DataAccess {
 
 						for (let i = 0; i < length; i++) {
 
-							const id = ids[i];
-							const key = `${prefixedTableName}!${id}`;
+							const id = ids[
+								i
+							];
+
+							const key = formatItemKeyFromId(
+								prefixedTableName,
+								id
+							);
 
 							multi.zrange(
 								key,
@@ -2177,24 +2379,91 @@ class DataAccess {
 							);
 						}
 
-						const jsons = await multi.execAsync();
+						const pairs = await multi.execAsync();
 
-						let miss;
-						let result = [];
+						if (pairs.length === length) {
 
-						for (let i = 0; i < length; i++) {
+							let miss;
+							let result = [];
 
-							const json = jsons[i];
+							for (let i = 0; i < length; i++) {
 
-							if (Array.isArray(json) && json.length === 2) {
+								const pair = pairs[
+									i
+								];
+
+								if (Array.isArray(pair)) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (pair.length === 2) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								const [
+									json,
+									scoreString
+								] = pair;
+
+								if (typeof json === "string") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (typeof scoreString === "string") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
 
 								const item = JSON.parse(
-									json[0]
+									json
 								);
 
+								if (typeof item === "object") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (Array.isArray(item)) {
+
+									miss = true;
+									break;
+								}
+
 								const score = Number.parseFloat(
-									json[1]
+									scoreString
 								);
+
+								if (Number.isFinite(score)) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
 
 								if (item[versionName] === score) {
 									// ok
@@ -2209,18 +2478,13 @@ class DataAccess {
 									item
 								);
 							}
-							else {
 
-								miss = true;
-								break;
+							if (miss === true) {
+								// ok
 							}
-						}
-
-						if (miss === true) {
-							// ok
-						}
-						else {
-							return result;
+							else {
+								return result;
+							}
 						}
 					}
 				}
@@ -2256,21 +2520,25 @@ class DataAccess {
 
 							const version = item[versionName];
 
-							if (!Number.isFinite(version)) {
+							if (Number.isFinite(version)) {
+								// ok
+							}
+							else {
 								throw new Error();
 							}
 
-							// id is `${hash}` or `${hash}!${range}`
-
 							let id;
 							if (rangeName === undefined) {
-								id = item[hashName];
+								id = formatItemId(item[hashName]);
 							}
 							else {
-								id = `${item[hashName]}!${item[rangeName]}`;
+								id = formatItemIdRanged(item[hashName], item[rangeName]);
 							}
 
-							const key = `${prefixedTableName}!${id}`;
+							const key = formatItemKeyFromId(
+								prefixedTableName,
+								id
+							);
 
 							const json = JSON.stringify(
 								item
@@ -2287,20 +2555,23 @@ class DataAccess {
 								ttl
 							);
 
-							ids.push(i, id);
+							ids.push(
+								i,
+								id
+							);
 						}
 
 						multi.del(
-							prefixedTableName
+							setKey
 						);
 
 						multi.zadd(
-							prefixedTableName,
+							setKey,
 							ids
 						);
 
 						multi.expire(
-							prefixedTableName,
+							setKey,
 							ttl
 						);
 
@@ -2548,8 +2819,8 @@ class DataAccess {
 
 							const item = items[i];
 
-							const id = `${item[hashName]}!${item[rangeName]}`;
-							const key = `${prefixedTableName}!${id}`;
+							const id = formatItemIdRanged(item[hashName], item[rangeName]);
+							const key = formatItemKeyFromId(prefixedTableName, id);
 
 							const json = JSON.stringify(
 								item
@@ -2826,10 +3097,8 @@ class DataAccess {
 		assertNonEmptyString(indexHashName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
-		const forward = desc === true ? false : true;
-
-		// group-user-pairs ! userId-createdAt-index ! user-1
 		const setKey = `${prefixedTableName}!${indexName}!${indexHash}`;
+		const forward = desc === true ? false : true;
 
 		let length = 0;
 		let consumed = 0;
@@ -2839,17 +3108,106 @@ class DataAccess {
 
 		try {
 
-			let items = await this.getCachedItems(
-				prefixedTableName,
-				setKey
-			);
+			const {
+				redis
+			} = this;
 
-			if (items === undefined) {
-				// ok
-			}
-			else {
-				length = items.length;
-				return items;
+			if (redis.connected) {
+
+				try {
+
+					const ids = await redis.zrangeAsync(
+						setKey,
+						0,
+						-1
+					);
+
+					length = ids.length;
+
+					if (0 < length) {
+
+						const multi = redis.multi();
+
+						for (let i = 0; i < length; i++) {
+
+							const id = ids[i];
+
+							const key = formatItemKeyFromId(prefixedTableName, id);
+
+							multi.get(
+								key
+							);
+						}
+
+						const jsons = await multi.execAsync();
+
+						if (jsons.length === length) {
+
+							let miss = false;
+							const result = [];
+
+							for (let i = 0; i < length; i++) {
+
+								const json = jsons[i];
+
+								if (typeof json === "string") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								const item = JSON.parse(
+									json
+								);
+
+								if (typeof item === "object") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (Array.isArray(item)) {
+
+									miss = true;
+									break;
+								}
+
+								if (item[indexHashName] === indexHash) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								result.push(
+									item
+								);
+							}
+
+							if (miss === true) {
+								// ok
+							}
+							else {
+
+								return result;
+							}
+						}
+					}
+				}
+				catch (error) {
+
+					this.log.warn(
+						error
+					);
+				}
 			}
 
 			const response = await this.ddb.query({
@@ -2866,7 +3224,7 @@ class DataAccess {
 				ReturnConsumedCapacity: "TOTAL"
 			}).promise();
 
-			items = response.Items;
+			const items = response.Items;
 
 			length = items.length;
 			consumed = response.ConsumedCapacity.CapacityUnits;
@@ -2874,30 +3232,26 @@ class DataAccess {
 
 			if (0 < length) {
 
-				if (this.redis.connected) {
+				if (redis.connected) {
 
 					try {
 
-						const multi = this.redis.multi();
+						const multi = redis.multi();
 
 						const ids = [];
 						for (let i = 0; i < length; i++) {
 
 							const item = items[i];
 
-							// group-1_user-1
-							// group-1_user-1 ! 123
 							let id;
 							if (rangeName === undefined) {
-								id = item[hashName];
+								id = formatItemId(item[hashName]);
 							}
 							else {
-								id = `${item[hashName]}!${item[rangeName]}`;
+								id = formatItemIdRanged(item[hashName], item[rangeName]);
 							}
 
-							// group-user-pairs ! group-1_user-1
-							// group-user-pairs ! group-1_user-1 ! 123
-							const key = `${prefixedTableName}!${id}`;
+							const key = formatItemKeyFromId(prefixedTableName, id);
 
 							const json = JSON.stringify(
 								item
@@ -2906,11 +3260,14 @@ class DataAccess {
 							multi.set(
 								key,
 								json,
-								"EX", ttl
+								"EX",
+								ttl
 							);
 
-							ids.push(i);
-							ids.push(id);
+							ids.push(
+								i,
+								id
+							);
 						}
 
 						// delete set
@@ -2994,10 +3351,8 @@ class DataAccess {
 		assertNonEmptyString(versionName);
 
 		const prefixedTableName = this.tableNamePrefix + tableName;
-		const forward = desc === true ? false : true;
-
-		// group-user-pairs ! userId-createdAt-index ! user-1
 		const setKey = `${prefixedTableName}!${indexName}!${indexHash}`;
+		const forward = desc === true ? false : true;
 
 		let length = 0;
 		let consumed = 0;
@@ -3007,29 +3362,30 @@ class DataAccess {
 
 		try {
 
-			if (this.redis.connected) {
+			const {
+				redis
+			} = this;
+
+			if (redis.connected) {
 
 				try {
 
-					const ids = await this.redis.zrangeAsync(setKey, 0, -1);
+					const ids = await redis.zrangeAsync(
+						setKey,
+						0,
+						-1
+					);
 
 					length = ids.length;
 
 					if (0 < length) {
 
-						const multi = this.redis.multi();
+						const multi = redis.multi();
 
 						for (let i = 0; i < length; i++) {
 
-							// group-1_user-1
-							// group-1_user-1 ! 123
 							const id = ids[i];
-
-							// group-user-pairs ! group-1_user-1
-							// group-user-pairs ! group-1_user-1 ! 123
-							const key = `${prefixedTableName}!${id}`;
-
-							//multi.get(key);
+							const key = formatItemKeyFromId(prefixedTableName, id);
 
 							multi.zrange(
 								key,
@@ -3039,26 +3395,100 @@ class DataAccess {
 							);
 						}
 
-						const jsons = await multi.execAsync();
+						const pairs = await multi.execAsync();
 
-						let miss;
-						let result = [];
+						if (pairs.length === length) {
 
-						for (let i = 0; i < length; i++) {
+							let miss = false;
+							const result = [];
 
-							const json = jsons[i];
+							for (let i = 0; i < length; i++) {
 
-							if (Array.isArray(json) && json.length === 2) {
+								const pair = pairs[i];
+
+								if (Array.isArray(pair)) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (pair.length === 2) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								const [
+									json,
+									scoreString
+								] = pair;
+
+								if (typeof json === "string") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (typeof scoreString === "string") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
 
 								const item = JSON.parse(
-									json[0]
+									json
 								);
+
+								if (typeof item === "object") {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (Array.isArray(item)) {
+
+									miss = true;
+									break;
+								}
 
 								const score = Number.parseFloat(
-									json[1]
+									scoreString
 								);
 
+								if (Number.isFinite(score)) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
 								if (item[versionName] === score) {
+									// ok
+								}
+								else {
+
+									miss = true;
+									break;
+								}
+
+								if (item[indexHashName] === indexHash) {
 									// ok
 								}
 								else {
@@ -3071,18 +3501,14 @@ class DataAccess {
 									item
 								);
 							}
+
+							if (miss === true) {
+								// ok
+							}
 							else {
 
-								miss = true;
-								break;
+								return result;
 							}
-						}
-
-						if (miss === true) {
-							// ok
-						}
-						else {
-							return result;
 						}
 					}
 				}
@@ -3116,48 +3542,48 @@ class DataAccess {
 
 			if (0 < length) {
 
-				if (this.redis.connected) {
+				if (redis.connected) {
 
 					try {
 
-						const multi = this.redis.multi();
+						const multi = redis.multi();
 
 						const ids = [];
 						for (let i = 0; i < length; i++) {
 
 							const item = items[i];
 
-							const version = item[versionName];
+							const version = item[
+								versionName
+							];
 
-							if (!Number.isFinite(version)) {
+							if (Number.isFinite(version)) {
+								// ok
+							}
+							else {
 								throw new Error();
 							}
 
-							// group-1_user-1
-							// group-1_user-1 ! 123
+							const hash = item[
+								hashName
+							];
+
 							let id;
 							if (rangeName === undefined) {
-								id = item[hashName];
+								id = formatItemId(hash);
 							}
 							else {
-								id = `${item[hashName]}!${item[rangeName]}`;
+								id = formatItemIdRanged(hash, item[rangeName]);
 							}
 
-							// group-user-pairs ! group-1_user-1
-							// group-user-pairs ! group-1_user-1 ! 123
-							const key = `${prefixedTableName}!${id}`;
+							const key = formatItemKeyFromId(
+								prefixedTableName,
+								id
+							);
 
 							const json = JSON.stringify(
 								item
 							);
-
-							// versioned items are cached with 'zadd', not 'set'
-
-							// multi.set(
-							// 	key,
-							// 	json,
-							// 	"EX", ttl
-							// );
 
 							multi.zadd(
 								key,
@@ -3170,7 +3596,10 @@ class DataAccess {
 								ttl
 							);
 
-							ids.push(i, id);
+							ids.push(
+								i,
+								id
+							);
 						}
 
 						// delete set
@@ -3602,7 +4031,6 @@ class DataAccess {
 					chunk.length
 				);
 
-				console.log(keys);
 				// batch get
 				const response = await this.ddb.batchGet({
 					RequestItems: {
@@ -3620,8 +4048,6 @@ class DataAccess {
 				const items = response.Responses[
 					prefixedTableName
 				];
-
-				console.log(items);
 
 				if (0 < items.length) {
 
@@ -3802,7 +4228,7 @@ class DataAccess {
 					const multi = this.redis.multi();
 					for (const hash of queue) {
 
-						const key = `${prefixedTableName}!${hash}`;
+						const key = formatItemKey(prefixedTableName, hash);
 						multi.get(
 							key
 						);
@@ -3981,7 +4407,10 @@ class DataAccess {
 								hashName
 							];
 
-							const key = `${prefixedTableName}!${hash}`;
+							const key = formatItemKey(
+								prefixedTableName,
+								hash
+							);
 
 							const json = JSON.stringify(
 								item
@@ -4113,7 +4542,7 @@ class DataAccess {
 
 					for (const hash of queue) {
 
-						const key = `${prefixedTableName}!${hash}`;
+						const key = formatItemKey(prefixedTableName, hash);
 
 						multi.zrange(
 							key,
@@ -4123,46 +4552,52 @@ class DataAccess {
 						);
 					}
 
-					const arrays = await multi.execAsync();
+					const pairs = await multi.execAsync();
 
 					let miss;
 					const results = [];
 
 					for (let i = 0; i < length; i++) {
 
-						const array = arrays[i];
-						if (Array.isArray(array)) {
+						const pair = pairs[i];
+
+						if (Array.isArray(pair)) {
 							// ok
 						}
 						else {
+
 							miss = true;
 							break;
 						}
 
-						if (array.length === 2) {
+						if (pair.length === 2) {
 							// ok
 						}
 						else {
+
 							miss = true;
 							break;
 						}
 
-						const json = array[0];
+						const [
+							json,
+							scoreString
+						] = pair;
 
 						if (typeof json === "string") {
 							// ok
 						}
 						else {
+
 							miss = true;
 							break;
 						}
-
-						const scoreString = array[1];
 
 						if (typeof scoreString === "string") {
 							// ok
 						}
 						else {
+
 							miss = true;
 							break;
 						}
@@ -4170,6 +4605,21 @@ class DataAccess {
 						const item = JSON.parse(
 							json
 						);
+
+						if (typeof item === "object") {
+							// ok
+						}
+						else {
+
+							miss = true;
+							break;
+						}
+
+						if (Array.isArray(item)) {
+
+							miss = true;
+							break;
+						}
 
 						const score = Number.parseFloat(
 							scoreString
@@ -4381,7 +4831,10 @@ class DataAccess {
 								hashName
 							];
 
-							const key = `${prefixedTableName}!${hash}`;
+							const key = formatItemKey(
+								prefixedTableName,
+								hash
+							);
 
 							const version = item[
 								versionName
