@@ -241,6 +241,7 @@ class RequestGateway {
 
 		let accountId;
 		let principalId;
+		let sessionId;
 		let authenticationInfo;
 		if (authorize || authenticate) {
 
@@ -273,6 +274,7 @@ class RequestGateway {
 
 			accountId = authenticationInfo.accountId;
 			principalId = authenticationInfo.principalId;
+			sessionId = authenticationInfo.sessionId;
 		}
 
 		// read any content
@@ -419,7 +421,7 @@ class RequestGateway {
 			if (handler.handle2 !== undefined) {
 
 				data = await handler.handle2(
-					{ accountId, principalId, requestId },
+					{ accountId, principalId, sessionId, requestId },
 					body
 				);
 			}
@@ -438,7 +440,7 @@ class RequestGateway {
 				const methodName = handler.method;
 
 				data = await instance[methodName](
-					{ accountId, principalId, requestId },
+					{ accountId, principalId, sessionId, requestId },
 					body
 				);
 			}

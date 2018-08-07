@@ -148,12 +148,14 @@ class AuthorizationService {
 
 				const {
 					aid: accountId,
-					uid: userId
+					uid: userId,
+					sid: sessionId
 				} = payload;
 
 				return {
 					accountId,
 					principalId: userId,
+					sessionId,
 					type,
 					token
 				};
@@ -273,10 +275,12 @@ class HeaderAuthorizationService {
 
 		const accountId = request.headers["x-fiyuu-account"];
 		const principalId = request.headers["x-fiyuu-principal"];
+		const sessionId = request.headers["x-fiyuu-session"];
 
 		return {
 			accountId,
-			principalId
+			principalId,
+			sessionId
 		};
 	}
 
@@ -284,12 +288,14 @@ class HeaderAuthorizationService {
 
 		const {
 			accountId,
-			principalId
+			principalId,
+			sessionId
 		} = authenticationInfo;
 
 		return {
 			accountId,
-			principalId
+			principalId,
+			sessionId
 		};
 	}
 }

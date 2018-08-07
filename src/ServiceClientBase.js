@@ -240,7 +240,7 @@ ServiceClientBase.prototype.raw = false;
 
 class ServiceClientBase2 {
 
-	post(endpoint, accountId, principalId, requestContent) {
+	post(endpoint, accountId, principalId, sessionId, requestContent) {
 
 		return new Promise((resolve, reject) => {
 
@@ -322,6 +322,13 @@ class ServiceClientBase2 {
 			}
 			else {
 				options.headers["x-fiyuu-principal"] = principalId;
+			}
+
+			if (sessionId === undefined) {
+				// ok
+			}
+			else {
+				options.headers["x-fiyuu-session"] = sessionId;
 			}
 
 			// if (this.authorization === null) {
@@ -453,13 +460,15 @@ class ServiceClientBase2 {
 
 				const {
 					accountId,
-					principalId
+					principalId,
+					sessionId
 				} = headers;
 
 				return this.post(
 					methods[key],
 					accountId,
 					principalId,
+					sessionId,
 					request
 				);
 			}
